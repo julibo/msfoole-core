@@ -1,0 +1,55 @@
+{
+  "name": "julibo/msfoole-core",
+  "description": "基于swoole的简易微服务框架",
+  "type": "library",
+  "keywords": [
+    "msfoole-core",
+    "msfoole",
+    "swoole",
+    "简易微服务框架"
+  ],
+  "homepage": "http://msfoole.julibo.com/",
+  "license": "Apache-2.0",
+  "repositories": {
+    "packagist": {
+      "type": "composer",
+      "url": "https://packagist.phpcomposer.com"
+    }
+  },
+  "authors": [
+    {
+      "name": "carson",
+      "email": "yuzhanwei@aliyun.com",
+      "homepage": "http://msfoole.julibo.com",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=7.2.6",
+    "ext-swoole": "~4.2.12",
+    "symfony/console": "~4.2.3",
+    "symfony/yaml": "~4.2.3",
+    "chency147/cli-message": "~0.1.1",
+    "topthink/think-orm": "dev-master",
+    "topthink/think-log": "dev-master",
+    "topthink/think-cache": "dev-master",
+    "topthink/think-container": "dev-master",
+    "topthink/think-helper": "dev-master",
+    "topthink/think-validate": "dev-master"
+  },
+  "require-dev" : {},
+  "autoload": {
+    "psr-4": {
+      "Julibo\\Msfoole\\": "src\\"
+    },
+    "files": [
+    ]
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "extra": {},
+  "config": {
+    "vendor-dir": "vendor",
+    "preferred-install": "dist"
+  }
+}
