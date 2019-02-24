@@ -26,7 +26,7 @@
   ],
   "require": {
     "php": ">=7.2.6",
-    "ext-swoole": "~4.2.12",
+    "ext-swoole": "~4.2.0",
     "symfony/console": "~4.2.3",
     "symfony/yaml": "~4.2.3",
     "chency147/cli-message": "~0.1.1",
