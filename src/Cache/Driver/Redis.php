@@ -82,4 +82,9 @@ class Redis extends Driver
         $key = $this->getCacheKey($name);
         return $this->handler->decrby($key, $step);
     }
+
+    public function __call($name, $arguments)
+    {
+        return $this->handler->$name(...$arguments);
+    }
 }
