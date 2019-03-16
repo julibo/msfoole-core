@@ -46,7 +46,7 @@ class Init extends Command implements Console
     /**
      * @var
      */
-    private $mix;
+    private $server;
 
     /**
      * @var
@@ -65,7 +65,7 @@ class Init extends Command implements Console
             ->setHelp('msfoole是基于swoole的简易微服务框架')
             ->addArgument('action', InputArgument::REQUIRED, '执行操作：可选择值为start、stop、reload、restart')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, '运行环境：可选值为dev、test、demo、online', 'dev')
-            ->addOption('mix', 's', InputOption::VALUE_NONE, '附加服务：websocket')
+            ->addOption('server', 's', InputOption::VALUE_NONE, '运行策略：服务端/客户端')
             ->addOption('daemon', 'd', InputOption::VALUE_NONE, '运行模式：守护模式');
     }
 
@@ -88,7 +88,7 @@ class Init extends Command implements Console
      */
     public function init()
     {
-        $this->mix = $this->input->getOption('mix');
+        $this->server = $this->input->getOption('server');
         $this->daemon = $this->input->getOption('daemon');
         $action = $this->input->getArgument('action');
         if (!in_array($action, ['start', 'stop', 'restart','reload'])) {
@@ -211,7 +211,7 @@ class Init extends Command implements Console
             $this->output->writeln("<error>Server Class Not Exists : {$swooleClass}</error>");
             return false;
         }
-        $swoole = new $swooleClass($host, $port, $mode, $type, $option, $this->mix);
+        $swoole = new $swooleClass($host, $port, $mode, $type, $option, $this->server);
         if (!$swoole instanceof SwooleServer) {
             $this->output->writeln("<error>Server Class Must extends \\Julibo\\Msfoole\\Interfaces\\Server</error>");
             return false;

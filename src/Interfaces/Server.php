@@ -77,6 +77,12 @@ abstract class Server
     protected $config = [];
 
     /**
+     * 运行模式：客户端/服务端
+     * @var bool
+     */
+    protected $pattern = false;
+
+    /**
      * 魔术方法，有不存在的操作时候执行
      * @param $method
      * @param $args
@@ -86,7 +92,7 @@ abstract class Server
         call_user_func_array([$this->swoole, $method], $args);
     }
 
-    final public function __construct($host, $port, $mode, $sockType, $option = [], $mix = false)
+    final public function __construct($host, $port, $mode, $sockType, $option = [], $pattern = false)
     {
         $this->lastMtime = time();
         $this->host = $host;
@@ -94,9 +100,7 @@ abstract class Server
         $this->mode = $mode;
         $this->sockType = $sockType;
         $this->option = $option;
-        if ($mix && $this->serverType == 'http') {
-            $this->serverType = 'socket';
-        }
+        $this->pattern = $pattern;
 
         // 实例化 Swoole 服务
         switch ($this->serverType) {

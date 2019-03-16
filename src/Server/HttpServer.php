@@ -43,6 +43,19 @@ class HttpServer extends BaseServer
     private $robotkey = 'regMachine';
 
     /**
+     * 服务端IP
+     * @var string
+     */
+    private $server_ip = '127.0.0.1';
+
+    /**
+     * 服务端端口
+     * @var string
+     */
+    private $server_port = '9111';
+
+
+    /**
      * 支持的响应事件
      * @var array
      */
@@ -85,13 +98,16 @@ class HttpServer extends BaseServer
         $this->option['http_parse_post'] = true;
         $this->option['http_compression'] = true;
         $config = Config::get('msfoole') ?? [];
-        if (!empty($config['regport'])) {
-            $this->regPort =  $config['regport'];
+        if ($this->pattern) {
+            if (!empty($config['regport'])) {
+                $this->regPort =  $config['regport'];
+            }
+            if (!empty($config['robotkey'])) {
+                $this->robotkey =  $config['robotkey'];
+            }
+            unset($config['regport'], $config['robotkey']);
         }
-        if (!empty($config['robotkey'])) {
-            $this->robotkey =  $config['robotkey'];
-        }
-        unset($config['host'], $config['port'], $config['ssl'], $config['option'], $config['regport'], $config['robotkey']);
+        unset($config['host'], $config['port'], $config['ssl'], $config['option']);
         $this->config = array_merge($this->config, $config);
     }
 
@@ -100,16 +116,18 @@ class HttpServer extends BaseServer
      */
     protected function startLogic()
     {
-        # 开启注册监听
-        $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
-        $reg_server->on("request", [$this, "regMachine"]);
         # 开启全局缓存
         $cacheConfig = Config::get('cache.default') ?? [];
         $this->cache = new Cache($cacheConfig);
         # 开启异步定时监控
         $this->monitorProcess();
-        # 开启健康监测
-        $this->monitorHealth();
+        # 开启注册监听
+        if ($this->pattern) {
+            $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
+            $reg_server->on("request", [$this, "regMachine"]);
+            # 开启健康监测
+            $this->monitorHealth();
+        }
     }
 
     /**
@@ -118,10 +136,9 @@ class HttpServer extends BaseServer
     private function monitorHealth()
     {
         $monitor = new Process(function (Process $process) {
-            // echo "健康监测进程启动";
+            echo "健康监测进程启动";
             Helper::setProcessTitle("msfoole:health");
-            $timer = 6000;
-            swoole_timer_tick($timer, function () {
+            swoole_timer_tick(60000, function () {
                 $robot = $this->cache->HGETALL($this->robotkey);
                 $clients = [];
                 foreach ($robot as $k=>$vo) {
@@ -171,7 +188,7 @@ class HttpServer extends BaseServer
         $paths = $this->config['monitor']['path'] ?? null;
         if ($paths) {
             $monitor = new Process(function (Process $process) use ($paths) {
-                // echo "文件监控进程启动";
+                echo "文件监控进程启动";
                 Helper::setProcessTitle("msfoole:monitor");
                 $timer = $this->config['monitor']['interval'] ?? 10;
                 swoole_timer_tick($timer * 1000, function () use($paths) {
@@ -207,6 +224,32 @@ class HttpServer extends BaseServer
     {
         echo "主进程启动";
         Helper::setProcessTitle("msfoole:master");
+        // 客户端启动进行服务注册
+        if ($this->pattern != true) {
+            $application = Config::get('application') ?? [];
+            $server_ip = $application['server']['ip'] ?? $this->server_ip;
+            $server_port = $application['server']['port'] ?? $this->server_port;
+            $cli = new \Swoole\Coroutine\Http\Client($server_ip, $server_port);
+            $cli->setHeaders([
+                'Host' => "localhost",
+                "User-Agent" => 'Chrome/49.0.2587.3',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml',
+                'Accept-Encoding' => 'gzip',
+            ]);
+            $cli->set([ 'timeout' => 3]);
+            $params = array(
+                'server' => $application['server'],
+                'ip' => $application['ip'],
+                'port' => $application['port'],
+                'version' => $application['version'],
+                'timestamp' => $application['timestamp']
+            );
+            $regSigner = $this->regSigner($params);
+            $params['signer'] = $regSigner;
+            $cli->post('/', $params);
+            echo $cli->body;
+            $cli->close();
+        }
     }
 
     public function onShutdown(\Swoole\Server $server)
@@ -278,7 +321,7 @@ class HttpServer extends BaseServer
     private function WorkingPool()
     {
         go(function () {
-            while(1) {
+            while(true) {
                 $data = $this->chan->pop();
                 if (!empty($data) && is_int($data['type'])) {
                     switch ($data['type']) {
@@ -337,7 +380,6 @@ class HttpServer extends BaseServer
                     'version' => $version,
                     'timestamp' => $timestamp,
                 ]);
-                var_dump($regSigner);
                 if ($regSigner == $signer) {
                     $field = $server .':'.$ip.':'.$port;
                     $robot = [
