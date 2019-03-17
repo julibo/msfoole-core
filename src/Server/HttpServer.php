@@ -98,14 +98,20 @@ class HttpServer extends BaseServer
         $this->option['http_parse_post'] = true;
         $this->option['http_compression'] = true;
         $config = Config::get('msfoole') ?? [];
-        if ($this->pattern) {
-            if (!empty($config['regport'])) {
-                $this->regPort =  $config['regport'];
+        if ($this->pattern == 2) {
+            if (!empty($config['server']['regport'])) {
+                $this->regPort =  $config['server']['regport'];
             }
-            if (!empty($config['robotkey'])) {
-                $this->robotkey =  $config['robotkey'];
+            if (!empty($config['server']['robotkey'])) {
+                $this->robotkey =  $config['server']['robotkey'];
             }
-            unset($config['regport'], $config['robotkey']);
+        } else if ($this->pattern == 1){
+            if (!empty($config['client']['ip'])) {
+                $this->server_ip =  $config['client']['ip'];
+            }
+            if (!empty($config['client']['port'])) {
+                $this->server_port =  $config['client']['port'];
+            }
         }
         unset($config['host'], $config['port'], $config['ssl'], $config['option']);
         $this->config = array_merge($this->config, $config);
@@ -122,7 +128,7 @@ class HttpServer extends BaseServer
         # 开启异步定时监控
         $this->monitorProcess();
         # 开启注册监听
-        if ($this->pattern) {
+        if ($this->pattern == 2) {
             $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
             $reg_server->on("request", [$this, "regMachine"]);
             # 开启健康监测
@@ -136,7 +142,7 @@ class HttpServer extends BaseServer
     private function monitorHealth()
     {
         $monitor = new Process(function (Process $process) {
-            echo "健康监测进程启动";
+            // echo "健康监测进程启动";
             Helper::setProcessTitle("msfoole:health");
             swoole_timer_tick(60000, function () {
                 $robot = $this->cache->HGETALL($this->robotkey);
@@ -188,7 +194,7 @@ class HttpServer extends BaseServer
         $paths = $this->config['monitor']['path'] ?? null;
         if ($paths) {
             $monitor = new Process(function (Process $process) use ($paths) {
-                echo "文件监控进程启动";
+                // echo "文件监控进程启动";
                 Helper::setProcessTitle("msfoole:monitor");
                 $timer = $this->config['monitor']['interval'] ?? 10;
                 swoole_timer_tick($timer * 1000, function () use($paths) {
@@ -225,11 +231,9 @@ class HttpServer extends BaseServer
         echo "主进程启动";
         Helper::setProcessTitle("msfoole:master");
         // 客户端启动进行服务注册
-        if ($this->pattern != true) {
+        if ($this->pattern == 1) {
             $application = Config::get('application') ?? [];
-            $server_ip = $application['server']['ip'] ?? $this->server_ip;
-            $server_port = $application['server']['port'] ?? $this->server_port;
-            $cli = new \Swoole\Coroutine\Http\Client($server_ip, $server_port);
+            $cli = new \Swoole\Coroutine\Http\Client($this->server_ip, $this->server_port);
             $cli->setHeaders([
                 'Host' => "localhost",
                 "User-Agent" => 'Chrome/49.0.2587.3',
@@ -238,11 +242,11 @@ class HttpServer extends BaseServer
             ]);
             $cli->set([ 'timeout' => 3]);
             $params = array(
-                'server' => $application['server'],
+                'server' => $application['name'],
                 'ip' => $application['ip'],
                 'port' => $application['port'],
                 'version' => $application['version'],
-                'timestamp' => $application['timestamp']
+                'timestamp' => time()
             );
             $regSigner = $this->regSigner($params);
             $params['signer'] = $regSigner;
@@ -254,45 +258,47 @@ class HttpServer extends BaseServer
 
     public function onShutdown(\Swoole\Server $server)
     {
-        echo "主进程结束";
-        // Helper::sendDingRobotTxt("主进程结束");
+        // echo "主进程结束";
+        $tips = sprintf("【%s:%s】主进程结束", $this->host, $this->port);
+        Helper::sendDingRobotTxt($tips);
     }
 
     public function onManagerStart(\Swoole\Server $server)
     {
-        echo "管理进程启动";
+        // echo "管理进程启动";
         Helper::setProcessTitle("msfoole:manager");
     }
 
     public function onManagerStop(\Swoole\Server $server)
     {
-        echo "管理进程停止";
-        // Helper::sendDingRobotTxt("管理进程停止");
+        // echo "管理进程停止";
+        $tips = sprintf("【%s:%s】管理进程停止", $this->host, $this->port);
+        Helper::sendDingRobotTxt($tips);
     }
 
     public function onWorkerStop(\Swoole\Server $server, int $worker_id)
     {
-        echo "worker进程终止";
-        // Helper::sendDingRobotTxt("worker进程终止");
+        // echo "worker进程终止";
+        $tips = sprintf("【%s:%s】worker进程终止", $this->host, $this->port);
+        Helper::sendDingRobotTxt($tips);
     }
 
     public function onWorkerExit(\Swoole\Server $server, int $worker_id)
     {
-        echo "worker进程退出";
-        // Helper::sendDingRobotTxt("worker进程退出");
+        // echo "worker进程退出";
+        $tips = sprintf("【%s:%s】worker进程退出", $this->host, $this->port);
+        Helper::sendDingRobotTxt($tips);
     }
 
     public function onWorkerError(\Swoole\Server $serv, int $worker_id, int $worker_pid, int $exit_code, int $signal)
     {
         $error = sprintf("worker进程异常:[%d] %d 退出的状态码为%d, 退出的信号为%d", $worker_pid, $worker_id, $exit_code, $signal);
-        echo $error;
-        // Helper::sendDingRobotTxt($error);
+        Helper::sendDingRobotTxt($error);
     }
 
     public function onClose(\Swoole\Server $server, int $fd, int $reactorId)
     {
-        // 销毁内存表记录
-        echo sprintf('%s的连接关闭', $fd);
+        // echo sprintf('%s的连接关闭', $fd);
     }
 
     /**
@@ -302,7 +308,7 @@ class HttpServer extends BaseServer
      */
     public function onWorkerStart(\Swoole\Server $server, int $worker_id)
     {
-        echo "worker进程启动";
+        // echo "worker进程启动";
         Helper::setProcessTitle("msfoole:worker");
         // step 1 创建通道
         $chanConfig = $this->config['channel'];
@@ -409,7 +415,16 @@ class HttpServer extends BaseServer
     {
         // 执行应用并响应
         // print_r($request);
-        $response->end("<h1>Hello Swoole. #".rand(1000, 9999)."</h1>");
+        if ($this->pattern == 2) {
+            // 服务端网关
+            $response->end("<h1>Hello Swoole Server. #".rand(1000, 9999)."</h1>");
+        } else if ($this->pattern == 1) {
+            // 客户端
+            $response->end("<h1>Hello Swoole Client. #".rand(1000, 9999)."</h1>");
+        } else {
+            // 独立端
+            $response->end("<h1>Hello Swoole Alone. #".rand(1000, 9999)."</h1>");
+        }
     }
 
 }

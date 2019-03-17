@@ -77,10 +77,10 @@ abstract class Server
     protected $config = [];
 
     /**
-     * 运行模式：客户端/服务端
+     * 运行模式：独立端/客户端/服务端
      * @var bool
      */
-    protected $pattern = false;
+    protected $pattern = 0;
 
     /**
      * 魔术方法，有不存在的操作时候执行
@@ -92,7 +92,7 @@ abstract class Server
         call_user_func_array([$this->swoole, $method], $args);
     }
 
-    final public function __construct($host, $port, $mode, $sockType, $option = [], $pattern = false)
+    final public function __construct($host, $port, $mode, $sockType, $option = [], $pattern = 'alone')
     {
         $this->lastMtime = time();
         $this->host = $host;
@@ -101,6 +101,17 @@ abstract class Server
         $this->sockType = $sockType;
         $this->option = $option;
         $this->pattern = $pattern;
+        switch ($pattern) {
+            case 'server':
+                $this->pattern = 2;
+                break;
+            case 'client':
+                $this->pattern = 1;
+                break;
+            case 'alone':
+                $this->pattern = 0;
+                break;
+        }
 
         // 实例化 Swoole 服务
         switch ($this->serverType) {

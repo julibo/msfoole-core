@@ -46,12 +46,12 @@ class Init extends Command implements Console
     /**
      * @var
      */
-    private $server;
+    private $daemon;
 
     /**
      * @var
      */
-    private $daemon;
+    private $pattern;
 
     public function __construct($name = null)
     {
@@ -65,7 +65,7 @@ class Init extends Command implements Console
             ->setHelp('msfoole是基于swoole的简易微服务框架')
             ->addArgument('action', InputArgument::REQUIRED, '执行操作：可选择值为start、stop、reload、restart')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, '运行环境：可选值为dev、test、demo、online', 'dev')
-            ->addOption('server', 's', InputOption::VALUE_NONE, '运行策略：服务端/客户端')
+            ->addOption('pattern', 'p', InputOption::VALUE_REQUIRED, '运行策略：可选值为server、client、alone', 'alone')
             ->addOption('daemon', 'd', InputOption::VALUE_NONE, '运行模式：守护模式');
     }
 
@@ -88,7 +88,6 @@ class Init extends Command implements Console
      */
     public function init()
     {
-        $this->server = $this->input->getOption('server');
         $this->daemon = $this->input->getOption('daemon');
         $action = $this->input->getArgument('action');
         if (!in_array($action, ['start', 'stop', 'restart','reload'])) {
@@ -97,14 +96,22 @@ class Init extends Command implements Console
         } else {
             $this->action = $action;
         }
+
+        $pattern = $this->input->getOption('pattern');
+        if (!in_array($pattern, ['server', 'client', 'alone'])) {
+            $this->output->writeln("<error>运行策略：可选值为server（服务端）、client（客户端）、alone（独立运行）</error>");
+            exit(110);
+        } else {
+            $this->pattern = $pattern;
+        }
+
         $env = $this->input->getOption('env');
         if (!in_array($env, ['dev', 'test', 'demo', 'online'])) {
             $this->output->writeln("<error>运行环境：可选值为dev（开发环境）、test（测试环境）、demo（演示环境）、online（生产环境）</error>");
-            exit(110);
+            exit(120);
         } else {
             $this->env = $env;
         }
-
         $this->setEnvConfig($this->env);
 
         // 避免PID混乱
@@ -211,7 +218,7 @@ class Init extends Command implements Console
             $this->output->writeln("<error>Server Class Not Exists : {$swooleClass}</error>");
             return false;
         }
-        $swoole = new $swooleClass($host, $port, $mode, $type, $option, $this->server);
+        $swoole = new $swooleClass($host, $port, $mode, $type, $option, $this->pattern);
         if (!$swoole instanceof SwooleServer) {
             $this->output->writeln("<error>Server Class Must extends \\Julibo\\Msfoole\\Interfaces\\Server</error>");
             return false;
