@@ -11,6 +11,8 @@
 
 namespace Julibo\Msfoole;
 
+use think\helper\Arr;
+
 class Cache
 {
 
@@ -34,7 +36,17 @@ class Cache
      * Cache constructor.
      * @param array $config
      */
-    public function __construct(array $config = [])
+//    public function __construct(array $config = [])
+//    {
+//        $this->config = $config;
+//        $this->handle = $this->connect($config);
+//    }
+
+    /**
+     * 对象初始化
+     * @param array $config
+     */
+    public function init(array $config = [])
     {
         $this->config = $config;
         $this->handle = $this->connect($config);

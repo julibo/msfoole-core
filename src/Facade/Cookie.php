@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -9,28 +9,19 @@
 // | Author: carson <yuzhanwei@aliyun.com>
 // +----------------------------------------------------------------------
 
-namespace Julibo\Msfoole\Interfaces;
+namespace Julibo\Msfoole\Facade;
 
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
+use think\Facade;
 
-interface Console
+class Cookie extends Facade
 {
     /**
-     * 初始化工程
+     * 获取当前Facade对应类名（或者已经绑定的容器对象标识）
+     * @access protected
+     * @return string
      */
-    public function init();
-
-    /**
-     * 进程配置
-     */
-    public function configure();
-
-    /**
-     * 进程执行
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     * @return mixed
-     */
-    public function execute(InputInterface $input, OutputInterface $output);
+    protected static function getFacadeClass()
+    {
+        return 'Julibo\Msfoole\Cookie';
+    }
 }

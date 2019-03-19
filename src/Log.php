@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -12,7 +12,6 @@
 namespace Julibo\Msfoole;
 
 use think\Log as ThinkLog;
-use Swoole\Exception;
 
 class Log extends ThinkLog
 {

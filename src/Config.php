@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -206,7 +206,7 @@ class Config
      * 将数组键名改写为小写格式
      * @param $config
      */
-    public function changeKeyCase(&$config)
+    private function changeKeyCase(&$config)
     {
         $config = array_change_key_case($config);
         foreach ($config as $key => $value) {

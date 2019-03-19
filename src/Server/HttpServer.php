@@ -17,9 +17,12 @@ use Swoole\Process;
 use Swoole\Coroutine as SwooleCoroutine;
 use Julibo\Msfoole\Facade\Config;
 use Julibo\Msfoole\Facade\Log;
-use Julibo\Msfoole\Cache;
+use Julibo\Msfoole\Facade\Cache;
 use Julibo\Msfoole\Channel;
 use Julibo\Msfoole\Helper;
+use Julibo\Msfoole\Application\Alone as AloneApplication;
+use Julibo\Msfoole\Application\Client as ClientApplication;
+use Julibo\Msfoole\Application\Server as ServerApplication;
 use Julibo\Msfoole\Interfaces\Server as BaseServer;
 
 class HttpServer extends BaseServer
@@ -54,7 +57,6 @@ class HttpServer extends BaseServer
      */
     private $server_port = '9111';
 
-
     /**
      * 支持的响应事件
      * @var array
@@ -77,12 +79,6 @@ class HttpServer extends BaseServer
      * @var
      */
     protected $app;
-
-    /**
-     * 全局缓存
-     * @var Cache
-     */
-    protected $cache;
 
     /**
      * @var 通道
@@ -124,7 +120,7 @@ class HttpServer extends BaseServer
     {
         # 开启全局缓存
         $cacheConfig = Config::get('cache.default') ?? [];
-        $this->cache = new Cache($cacheConfig);
+        Cache::init($cacheConfig);
         # 开启异步定时监控
         $this->monitorProcess();
         # 开启注册监听
@@ -145,7 +141,7 @@ class HttpServer extends BaseServer
             // echo "健康监测进程启动";
             Helper::setProcessTitle("msfoole:health");
             swoole_timer_tick(60000, function () {
-                $robot = $this->cache->HGETALL($this->robotkey);
+                $robot = Cache::HGETALL($this->robotkey);
                 $clients = [];
                 foreach ($robot as $k=>$vo) {
                     $server = json_decode($vo, true);
@@ -162,7 +158,7 @@ class HttpServer extends BaseServer
                     $clients[$k] = $cli;
                 }
                 foreach ($clients as $k => $cli) {
-                    $server = $this->cache->hget($this->robotkey, $k);
+                    $server = Cache::HGET($this->robotkey, $k);
                     $server = json_decode($server, true);
                     $server['counter'] = $server['counter']++;
                     $cli->recv();
@@ -171,13 +167,13 @@ class HttpServer extends BaseServer
                             $server['power'] = $server['power']++;
                         }
                         $server['living'] = time();
-                        $this->cache->HSET($this->robotkey, $k, json_encode($server));
+                        Cache::HSET($this->robotkey, $k, json_encode($server));
                     } else {
                         $server['power'] = $server['power'] - 20;
                         if ($server['power'] <= 0) {
-                            $this->cache->HDEL($this->robotkey, $k);
+                            Cache::HDEL($this->robotkey, $k);
                         } else {
-                            $this->cache->HSET($this->robotkey, $k, json_encode($server));
+                            Cache::HSET($this->robotkey, $k, json_encode($server));
                         }
                     }
                 }
@@ -228,7 +224,7 @@ class HttpServer extends BaseServer
 
     public function onStart(\Swoole\Server $server)
     {
-        echo "主进程启动";
+        // echo "主进程启动";
         Helper::setProcessTitle("msfoole:master");
         // 客户端启动进行服务注册
         if ($this->pattern == 1) {
@@ -369,7 +365,7 @@ class HttpServer extends BaseServer
      */
     public function regMachine(SwooleRequest $request, SwooleResponse $response)
     {
-//        $res = $this->cache->hscan('regMachine', null, 'test*', 100);
+//        $res = Cache::hscan('regMachine', null, 'test*', 100);
         $result = 0;
         if ($request->post) {
             $server = $request->post['server'] ?? '';
@@ -398,7 +394,7 @@ class HttpServer extends BaseServer
                         'counter' => 0,
                         'living' => time(),
                     ];
-                    $this->cache->HSET($this->robotkey, $field, json_encode($robot));
+                    Cache::HSET($this->robotkey, $field, json_encode($robot));
                     $result = 1;
                 }
             }
@@ -414,17 +410,89 @@ class HttpServer extends BaseServer
     public function onRequest(SwooleRequest $request, SwooleResponse $response)
     {
         // 执行应用并响应
-        // print_r($request);
-        if ($this->pattern == 2) {
-            // 服务端网关
-            $response->end("<h1>Hello Swoole Server. #".rand(1000, 9999)."</h1>");
-        } else if ($this->pattern == 1) {
-            // 客户端
-            $response->end("<h1>Hello Swoole Client. #".rand(1000, 9999)."</h1>");
+        print_r($request);
+        $uri = $request->server['request_uri'];
+        if ($uri == '/favicon.ico') {
+            $response->status(404);
+            $response->end();
         } else {
-            // 独立端
-            $response->end("<h1>Hello Swoole Alone. #".rand(1000, 9999)."</h1>");
+            // todo 浏览器跨域
+
+            switch ($this->pattern) {
+                case 2:
+                    go (function () use($request, $response) {
+                        $this->serverRuning($request, $response);
+                    });
+                    break;
+                case 1:
+                    go (function () use($request, $response) {
+                        $this->clientRuning($request, $response);
+                    });
+                    break;
+                default:
+                    go (function () use($request, $response) {
+                        $this->aloneRuning($request, $response);
+                    });
+                    break;
+            }
         }
+    }
+
+    /**
+     * 服务端网关
+     * @param SwooleRequest $request
+     * @param SwooleResponse $response
+     */
+    private function serverRuning(SwooleRequest $request, SwooleResponse $response)
+    {
+        $this->app = new ServerApplication();
+    }
+
+    /**
+     * 客户端
+     * @param SwooleRequest $request
+     * @param SwooleResponse $response
+     */
+    private function clientRuning(SwooleRequest $request, SwooleResponse $response)
+    {
+        $this->app = new ClientApplication();
+//            if (isset($request->header['origin'])) {
+//                $origin = true;
+//                if (is_array(Config::get('application.access.origin'))) {
+//                    in_array($request->header['origin'], Config::get('application.access.origin')) ? : $origin = false;
+//                } else {
+//                    $request->header['origin'] == Config::get('application.access.origin') ? : $origin = false;
+//                }
+//                if ($origin) {
+//                    $response->header('Access-Control-Allow-Origin', $request->header['origin']);
+//                    $response->header('Access-Control-Allow-Credentials', 'true');
+//                    $response->header('Access-Control-Max-Age', '3600');
+//                    $response->header('Access-Control-Allow-Headers', 'Content-Type, Cookie, token, timestamp, level, signstr, identification_code');
+//                    $response->header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+//                }
+//              if ($request->server['request_method'] == 'OPTIONS') {
+//                  $response->status(200);
+//                  $response->end();
+//              }
+//            }
+
+//                // 应用初始化
+//                $this->app->initialize();
+//                $this->app->Handling($request, $response);
+//                $this->app->destruct();
+//            }
+    }
+
+    /**
+     * 独立端
+     * @param SwooleRequest $request
+     * @param SwooleResponse $response
+     */
+    private function aloneRuning(SwooleRequest $request, SwooleResponse $response)
+    {
+        $this->app = new AloneApplication($request, $response);
+
+
     }
 
 }

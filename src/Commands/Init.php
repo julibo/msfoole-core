@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -53,16 +53,24 @@ class Init extends Command implements Console
      */
     private $pattern;
 
+    /**
+     * 构造方法
+     * Init constructor.
+     * @param null $name
+     */
     public function __construct($name = null)
     {
         parent::__construct($name);
     }
 
+    /**
+     * 命令行配置
+     */
     public function configure()
     {
         $this->setName('msfoole')
             ->setDescription('msfoole命令行工具')
-            ->setHelp('msfoole是基于swoole的简易微服务框架')
+            ->setHelp('msfoole是基于swoole4的简易微服务框架')
             ->addArgument('action', InputArgument::REQUIRED, '执行操作：可选择值为start、stop、reload、restart')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, '运行环境：可选值为dev、test、demo、online', 'dev')
             ->addOption('pattern', 'p', InputOption::VALUE_REQUIRED, '运行策略：可选值为server、client、alone', 'alone')
@@ -70,6 +78,7 @@ class Init extends Command implements Console
     }
 
     /**
+     * 执行命令行
      * 输出样式：comment, info, error, question
      * @param InputInterface $input
      * @param OutputInterface $output
@@ -117,6 +126,9 @@ class Init extends Command implements Console
         // 避免PID混乱
         $port = $this->getPort();
         Config::set('msfoole.option.pid_file', SERVER_PID . '_' .  $port);
+        Config::set('msfoole.option.daemonize', $this->daemon);
+        Config::set('msfoole.option.log_file', LOG_PATH . ($option['log_file'] ?? 'msfoole.log'));
+        Config::set('msfoole.option.request_slowlog_file',  LOG_PATH . ($option['request_slowlog_file'] ?? 'trace.log'));
     }
 
     /**
@@ -206,9 +218,6 @@ class Init extends Command implements Console
         $mode = Config::get('msfoole.mode') ?: SWOOLE_PROCESS;
         $type = Config::get('msfoole.type') ?: SWOOLE_SOCK_TCP;
         $option = Config::get('msfoole.option') ?: [];
-        $option['daemonize'] = $this->daemon;
-        $option['log_file'] = LOG_PATH . ($option['log_file'] ?? 'msfoole.log');
-        $option['request_slowlog_file'] = LOG_PATH . ($option['request_slowlog_file'] ?? 'trace.log');
         $ssl = !empty(Config::get('msfoole.ssl')) || !empty($option['open_http2_protocol']);
         if ($ssl) {
             $type = SWOOLE_SOCK_TCP | SWOOLE_SSL;
