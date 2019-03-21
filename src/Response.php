@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的多进程API服务框架 ]
+// | msfoole [ 基于swoole4的多进程API服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -15,8 +15,15 @@ use Swoole\Http\Response as SwooleResponse;
 
 class Response
 {
+    /**
+     * @var SwooleResponse
+     */
     private $swooleResponse;
 
+    /**
+     * Response constructor.
+     * @param SwooleResponse $response
+     */
     public function __construct(SwooleResponse $response)
     {
         $this->swooleResponse = $response;
@@ -43,7 +50,7 @@ class Response
      * @param bool $secure
      * @param bool $httponly
      */
-    public function cookie(string $key, string $value = '', int $expire = 0 , string $path = '/', string $domain='', bool $secure = false, bool $httponly = false)
+    public function cookie(string $key, string $value = '', int $expire = 0 , string $path = '/', string $domain = '', bool $secure = false, bool $httponly = false)
     {
         $this->swooleResponse->cookie($key, $value, $expire, $path, $domain, $secure, $httponly);
     }

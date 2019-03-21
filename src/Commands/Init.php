@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -70,7 +70,7 @@ class Init extends Command implements Console
     {
         $this->setName('msfoole')
             ->setDescription('msfoole命令行工具')
-            ->setHelp('msfoole是基于swoole4的简易微服务框架')
+            ->setHelp('msfoole是基于swoole4的简易微服务API框架')
             ->addArgument('action', InputArgument::REQUIRED, '执行操作：可选择值为start、stop、reload、restart')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, '运行环境：可选值为dev、test、demo、online', 'dev')
             ->addOption('pattern', 'p', InputOption::VALUE_REQUIRED, '运行策略：可选值为server、client、alone', 'alone')
@@ -105,7 +105,6 @@ class Init extends Command implements Console
         } else {
             $this->action = $action;
         }
-
         $pattern = $this->input->getOption('pattern');
         if (!in_array($pattern, ['server', 'client', 'alone'])) {
             $this->output->writeln("<error>运行策略：可选值为server（服务端）、client（客户端）、alone（独立运行）</error>");
@@ -113,7 +112,6 @@ class Init extends Command implements Console
         } else {
             $this->pattern = $pattern;
         }
-
         $env = $this->input->getOption('env');
         if (!in_array($env, ['dev', 'test', 'demo', 'online'])) {
             $this->output->writeln("<error>运行环境：可选值为dev（开发环境）、test（测试环境）、demo（演示环境）、online（生产环境）</error>");
@@ -122,7 +120,6 @@ class Init extends Command implements Console
             $this->env = $env;
         }
         $this->setEnvConfig($this->env);
-
         // 避免PID混乱
         $port = $this->getPort();
         Config::set('msfoole.option.pid_file', SERVER_PID . '_' .  $port);

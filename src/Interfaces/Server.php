@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -92,6 +92,15 @@ abstract class Server
         call_user_func_array([$this->swoole, $method], $args);
     }
 
+    /**
+     * Server constructor.
+     * @param $host
+     * @param $port
+     * @param $mode
+     * @param $sockType
+     * @param array $option
+     * @param string $pattern
+     */
     final public function __construct($host, $port, $mode, $sockType, $option = [], $pattern = 'alone')
     {
         $this->lastMtime = time();

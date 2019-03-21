@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -35,7 +35,7 @@ class ErrorException extends Exception
         $this->message  = $message;
         $this->file     = $file;
         $this->line     = $line;
-        $this->code     = 0;
+        $this->code     = 1000;
     }
 
     /**

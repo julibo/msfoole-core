@@ -1,12 +1,12 @@
 {
   "name": "julibo/msfoole-core",
-  "description": "基于swoole4的简易微服务框架",
+  "description": "基于swoole4的简易微服务API框架",
   "type": "library",
   "keywords": [
     "msfoole-core",
     "msfoole",
     "swoole",
-    "简易微服务框架"
+    "简易微服务API框架"
   ],
   "homepage": "http://msfoole.julibo.com/",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -15,9 +15,17 @@ use Julibo\Msfoole\Facade\Config;
 
 class Helper
 {
+    /**
+     * 钉钉通道
+     */
     const WEBHOOK = 'https://oapi.dingtalk.com/robot/send?access_token=';
 
-    public static function request_by_curl($remote_server, $post_string) {
+    /**
+     * @param $remote_server
+     * @param $post_string
+     * @return mixed
+     */
+    private static function request_by_curl($remote_server, $post_string) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $remote_server);
         curl_setopt($ch, CURLOPT_POST, 1);
@@ -101,6 +109,34 @@ class Helper
     {
         if (!IS_DARWIN && function_exists('swoole_set_process_name')) {
             swoole_set_process_name($title);
+        }
+    }
+
+    /**
+     * 按符号截取字符串的指定部分
+     * @param string $str 需要截取的字符串
+     * @param string $sign 需要截取的符号
+     * @param int $number 如是正数以0为起点从左向右截  负数则从右向左截
+     * @return string 返回截取的内容
+     */
+    public static function cut_str($str, $sign, $number)
+    {
+        $array = explode($sign, $str);
+        $length = count($array);
+        if($number < 0){
+            $new_array = array_reverse($array);
+            $abs_number = abs($number);
+            if($abs_number > $length){
+                return '';
+            }else{
+                return $new_array[$abs_number-1];
+            }
+        }else{
+            if($number >= $length){
+                return '';
+            }else{
+                return $array[$number];
+            }
         }
     }
 

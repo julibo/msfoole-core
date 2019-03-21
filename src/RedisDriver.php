@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -18,7 +18,7 @@ class RedisDriver
     /**
      * @var array
      */
-    public static $instance = [];
+    private static $instance = [];
 
     /**
      * @var int
@@ -92,7 +92,7 @@ class RedisDriver
     /**
      * @return bool
      */
-    public function ping()
+    public function ping() : bool
     {
         if ($this->redis->PING() == '+PONG')
             return true;
@@ -103,7 +103,7 @@ class RedisDriver
     /**
      * @return array
      */
-    public function getConfig()
+    public function getConfig() : array
     {
         return $this->config;
     }
@@ -115,7 +115,7 @@ class RedisDriver
      * @param null $iterator
      * @return array|bool
      */
-    public function scan($pattern = '', $count = 1000, $iterator = null)
+    public function scan(string $pattern = '', int $count = 1000, $iterator = null)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {
@@ -136,7 +136,7 @@ class RedisDriver
      * 清除所有缓存
      * @return bool
      */
-    public function clear()
+    public function clear() :bool
     {
         $iterator = null;
         $pattern = $this->config['prefix'] .  '*';
@@ -156,7 +156,7 @@ class RedisDriver
      * @param $key
      * @return bool|string
      */
-    public function get($key)
+    public function get(string $key)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {
@@ -178,7 +178,7 @@ class RedisDriver
      * @param null $expire
      * @return bool
      */
-    public function set($key, $val, $expire = null)
+    public function set(string $key, $val, $expire = null)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {
@@ -205,7 +205,7 @@ class RedisDriver
      * @param $key
      * @return bool|string
      */
-    public function del($key)
+    public function del(string $key)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {
@@ -226,7 +226,7 @@ class RedisDriver
      * @param int $step
      * @return bool|int
      */
-    public function incrby($key, $step = 1)
+    public function incrby(string $key, int $step = 1)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {
@@ -247,7 +247,7 @@ class RedisDriver
      * @param int $step
      * @return bool|int
      */
-    public function decrby($key, $step = 1)
+    public function decrby(string $key, int $step = 1)
     {
         $retryTimes = $this->retryTimes;
         while ($retryTimes) {

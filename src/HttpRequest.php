@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -18,18 +18,23 @@ class HttpRequest
 {
 
     /**
-     * # 过滤器
+     * @var
+     */
+    private $serviceName;
+
+    /**
+     * 过滤器
      * @var mixed
      */
     private $filter;
 
     /**
-     * # http请求原始报文
+     * http请求原始报文
      */
     private $data;
 
     /**
-     * # Http请求的头部信息，格式为数组。
+     * Http请求的头部信息，格式为数组。
      * @var
      */
     private $header;
@@ -65,44 +70,47 @@ class HttpRequest
     private $input;
 
     /**
-     * @var #
+     * @var
      */
     private $host;
 
-    private $baseHost;
-
     /**
-     * @var #
+     * @var
      */
     private $origin;
 
     /**
-     * @var #
+     * @var
      */
     private $request_method;
 
     /**
-     * @var #
+     * @var
      */
     private $request_uri;
 
     /**
-     * @var #
+     * @var
      */
     private $path_info;
 
     /**
-     * @var #
+     * @var
      */
     private $query_string;
 
     /**
-     * @var #
+     * @var
      */
     private $remote_addr;
 
     /**
-     * 请求唯一识别码 #
+     * @var 
+     */
+    private $files;
+
+    /**
+     * 请求唯一识别码
      * @var
      */
     private $identification;
@@ -120,6 +128,11 @@ class HttpRequest
      * @var
      */
     public $namespace;
+
+    /**
+     * @var　模块
+     */
+    public $modular;
 
     /**
      * 控制器
@@ -140,6 +153,11 @@ class HttpRequest
     public $params = [];
 
     /**
+     * @var
+     */
+    private $request;
+
+    /**
      * 构造方法
      * HttpRequest constructor.
      * @param SwooleRequest $request
@@ -152,30 +170,37 @@ class HttpRequest
         if (is_null($this->filter) && !empty($this->config['default_filter'])) {
             $this->filter = $this->config['default_filter'];
         }
+        $this->request = $request;
+    }
 
-        $this->withData($request->getData())
-            ->withHeader($request->header)
-            ->withServer($request->server);
 
-        if (isset($request->get))
-            $this->withGet($request->get);
-        if (isset($request->post))
-            $this->withPost($request->post);
-        if (isset($request->cookie))
-            $this->withCookie($request->cookie);
-        $rawContent = $request->rawContent();
+    public function init()
+    {
+        $this->withData($this->request->getData())
+            ->withHeader($this->request->header)
+            ->withServer($this->request->server);
+        if (!empty($this->request->get))
+            $this->withGet($this->request->get);
+        if (!empty($this->request->post))
+            $this->withPost($this->request->post);
+        if (!empty($this->request->cookie))
+            $this->withCookie($this->request->cookie);
+        $rawContent = $this->request->rawContent();
         if (!empty($rawContent)) {
             $this->withInput($rawContent);
         }
-        $this->explain();
+        if (!empty($this->request->files)) {
+            $this->withFile($this->request->files);
+        }
+        // $this->explain();
     }
 
     /**
      * 获取完整原始报文
-     * @param $data
+     * @param string $data
      * @return $this
      */
-    private function withData($data)
+    private function withData(string $data)
     {
         $this->data = $data;
         return $this;
@@ -183,39 +208,34 @@ class HttpRequest
 
     /**
      * Http请求的头部信息。类型为数组，所有key均为小写。
-     * @param $header
+     * @param array $header
      * @return $this
      */
-    private function withHeader($header)
+    private function withHeader(array $header)
     {
         $this->header = $header;
         $this->host = $this->header['host'] ?? null;
         $this->origin = $this->header['origin'] ?? null;
         $this->identification = $this->header['identification_code'] ?? Helper::guid();
-        if (isset($this->header['x-forwarded-for'])) {
-            $remoteAddr = explode(', ', $this->header['x-forwarded-for']);
-            $this->remote_addr = $remoteAddr[0];
-        } else if (isset($this->header['x-real-ip'])) {
+        if (isset($this->header['x-real-ip'])) {
             $this->remote_addr = $this->header['x-real-ip'];
         }
-        // $this->baseHost = Helper::getRootRegion($this->host);
         return $this;
     }
 
     /**
      * Http请求相关的服务器信息，相当于PHP的$_SERVER数组。
      * 包含了Http请求的方法，URL路径，客户端IP等信息。
-     * @param $server
+     * @param array $server
      * @return $this
      */
-    private function withServer($server)
+    private function withServer(array $server)
     {
         $this->server = $server;
         $this->request_method = $this->server['request_method'] ?? null;
         $this->request_uri = $this->server['request_uri'] ?? null;
         $this->path_info = $this->server['path_info'] ?? null;
         $this->query_string = $this->server['query_string'] ?? null;
-        $this->server_port = $this->server['server_port'] ?? null;
         if (is_null($this->remote_addr)) {
             $this->remote_addr = $this->server['remote_addr'] ?? null;
         }
@@ -224,10 +244,10 @@ class HttpRequest
 
     /**
      * Http请求的GET参数，相当于PHP中的$_GET，格式为数组。
-     * @param $get
+     * @param array $get
      * @return $this
      */
-    private function withGet($get)
+    private function withGet(array $get)
     {
         $this->get = $get;
         $_GET = $this->get;
@@ -236,10 +256,10 @@ class HttpRequest
 
     /**
      * HTTP POST参数，格式为数组。
-     * @param $post
+     * @param array $post
      * @return $this
      */
-    private function withPost($post)
+    private function withPost(array $post)
     {
         $this->post = $post;
         $_POST = $this->post;
@@ -251,7 +271,7 @@ class HttpRequest
      * @param $cookie
      * @return $this
      */
-    private function withCookie($cookie)
+    private function withCookie(array $cookie)
     {
         $this->cookie = $cookie;
         return $this;
@@ -263,10 +283,19 @@ class HttpRequest
      * @param $input
      * @return $this
      */
-    private function withInput($input)
+    private function withInput(string $input)
     {
         $this->input = $input;
         return $this;
+    }
+
+    /**
+     * 文件上传信息
+     * @param array $files
+     */
+    private function withFile(array $files)
+    {
+        $this->files = $files;
     }
 
     /**
@@ -444,6 +473,7 @@ class HttpRequest
             if ($multiModule) {
                 $pathInfo = explode('/', $pathInfo, 3);
                 $this->namespace = CONTROLLER_NAMESPACE . (isset($pathInfo[0]) ? ucfirst($pathInfo[0]) : $defaultModule). '\\';
+                $this->modular = $pathInfo[0];
                 $this->controller = isset($pathInfo[1]) ? ucfirst($pathInfo[1]) : $defaultController ;
                 $this->action = $pathInfo[2] ?? $defaultAction;
             } else {
@@ -453,10 +483,29 @@ class HttpRequest
                 $this->action = $pathInfo[1] ?? $defaultAction;
             }
         }
+
         if ($this->request_method == 'POST') {
             $this->params = $this->post;
         } else if ($this->request_method == 'GET') {
             $this->params = $this->get;
         }
     }
+
+    /**
+     * 服务解构
+     */
+    public function resolve()
+    {
+        $pathInfo = substr($this->path_info, 1);
+        if (strpos($pathInfo, '/') === false) {
+            $this->serviceName = strtolower($pathInfo);
+            $this->path_info = '/';
+        } else {
+            $serviceName = Helper::cut_str($pathInfo, '/', 0);
+            $this->serviceName = strtolower($serviceName);
+            $this->path_info = '/' . substr($pathInfo,strpos($pathInfo,'/') + 1);
+        }
+        $this->explain();
+    }
+
 }

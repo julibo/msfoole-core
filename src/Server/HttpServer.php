@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -14,7 +14,6 @@ namespace Julibo\Msfoole\Server;
 use Swoole\Http\Request as SwooleRequest;
 use Swoole\Http\Response as SwooleResponse;
 use Swoole\Process;
-use Swoole\Coroutine as SwooleCoroutine;
 use Julibo\Msfoole\Facade\Config;
 use Julibo\Msfoole\Facade\Log;
 use Julibo\Msfoole\Facade\Cache;
@@ -44,18 +43,6 @@ class HttpServer extends BaseServer
      * @var string
      */
     private $robotkey = 'regMachine';
-
-    /**
-     * 服务端IP
-     * @var string
-     */
-    private $server_ip = '127.0.0.1';
-
-    /**
-     * 服务端端口
-     * @var string
-     */
-    private $server_port = '9111';
 
     /**
      * 支持的响应事件
@@ -91,22 +78,15 @@ class HttpServer extends BaseServer
     protected function init()
     {
         $this->option['upload_tmp_dir'] = TEMP_PATH;
-        $this->option['http_parse_post'] = true;
+        $this->option['http_parse_post'] = false;
         $this->option['http_compression'] = true;
         $config = Config::get('msfoole') ?? [];
         if ($this->pattern == 2) {
-            if (!empty($config['server']['regport'])) {
-                $this->regPort =  $config['server']['regport'];
+            if (!empty($config['machine']['regport'])) {
+                $this->regPort =  $config['machine']['regport'];
             }
-            if (!empty($config['server']['robotkey'])) {
-                $this->robotkey =  $config['server']['robotkey'];
-            }
-        } else if ($this->pattern == 1){
-            if (!empty($config['client']['ip'])) {
-                $this->server_ip =  $config['client']['ip'];
-            }
-            if (!empty($config['client']['port'])) {
-                $this->server_port =  $config['client']['port'];
+            if (!empty($config['machine']['robotkey'])) {
+                $this->robotkey =  $config['machine']['robotkey'];
             }
         }
         unset($config['host'], $config['port'], $config['ssl'], $config['option']);
@@ -118,7 +98,7 @@ class HttpServer extends BaseServer
      */
     protected function startLogic()
     {
-        # 开启全局缓存
+        # 初始化缓存
         $cacheConfig = Config::get('cache.default') ?? [];
         Cache::init($cacheConfig);
         # 开启异步定时监控
@@ -128,7 +108,7 @@ class HttpServer extends BaseServer
             $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
             $reg_server->on("request", [$this, "regMachine"]);
             # 开启健康监测
-            $this->monitorHealth();
+            // $this->monitorHealth();
         }
     }
 
@@ -154,7 +134,7 @@ class HttpServer extends BaseServer
                     ]);
                     $cli->set([ 'timeout' => 1]);
                     $cli->setDefer();
-                    $cli->get('/Index/Index/health');
+                    $cli->get($server['health_uri']);
                     $clients[$k] = $cli;
                 }
                 foreach ($clients as $k => $cli) {
@@ -222,14 +202,18 @@ class HttpServer extends BaseServer
         }
     }
 
+    /**
+     * @param \Swoole\Server $server
+     */
     public function onStart(\Swoole\Server $server)
     {
         // echo "主进程启动";
         Helper::setProcessTitle("msfoole:master");
         // 客户端启动进行服务注册
         if ($this->pattern == 1) {
-            $application = Config::get('application') ?? [];
-            $cli = new \Swoole\Coroutine\Http\Client($this->server_ip, $this->server_port);
+            $application = Config::get('application');
+            $sidecar = Config::get('sidecar');
+            $cli = new \Swoole\Coroutine\Http\Client($sidecar['server_ip'], $sidecar['server_port']);
             $cli->setHeaders([
                 'Host' => "localhost",
                 "User-Agent" => 'Chrome/49.0.2587.3',
@@ -238,11 +222,13 @@ class HttpServer extends BaseServer
             ]);
             $cli->set([ 'timeout' => 3]);
             $params = array(
-                'server' => $application['name'],
-                'ip' => $application['ip'],
-                'port' => $application['port'],
+                'server' => strtolower($application['name']),
+                'ip' => $sidecar['ip'],
+                'port' => $sidecar['port'],
                 'version' => $application['version'],
-                'timestamp' => time()
+                'timestamp' => time(),
+                'health_uri' => $sidecar['health_uri'],
+                'white_list' => $sidecar['white_list'] ?? ''
             );
             $regSigner = $this->regSigner($params);
             $params['signer'] = $regSigner;
@@ -374,13 +360,17 @@ class HttpServer extends BaseServer
             $version = $request->post['version'] ?? '';
             $timestamp = $request->post['timestamp'] ?? '';
             $signer = $request->post['signer'] ?? '';
-            if ($server && $ip && $port && $version && $timestamp && $signer) {
+            $health_uri = $request->post['health_uri'] ?? '';
+            $white_list = $request->post['white_list'] ?? '';
+            if ($server && $ip && $port && $version && $timestamp && $signer && $health_uri) {
                 $regSigner = $this->regSigner([
                     'server' => $server,
                     'ip' => $ip,
                     'port' => $port,
                     'version' => $version,
                     'timestamp' => $timestamp,
+                    'health_uri' => $health_uri,
+                    'white_list' => $white_list
                 ]);
                 if ($regSigner == $signer) {
                     $field = $server .':'.$ip.':'.$port;
@@ -389,6 +379,8 @@ class HttpServer extends BaseServer
                         'ip' => $ip,
                         'port' => $port,
                         'version' => $version,
+                        'health_uri' => $health_uri,
+                        'white_list' => $white_list,
                         'create_time' => date('Y-m-d H:i:s'),
                         'power' => 100,
                         'counter' => 0,
@@ -410,7 +402,7 @@ class HttpServer extends BaseServer
     public function onRequest(SwooleRequest $request, SwooleResponse $response)
     {
         // 执行应用并响应
-        print_r($request);
+        // print_r($request);
         $uri = $request->server['request_uri'];
         if ($uri == '/favicon.ico') {
             $response->status(404);
@@ -442,10 +434,14 @@ class HttpServer extends BaseServer
      * 服务端网关
      * @param SwooleRequest $request
      * @param SwooleResponse $response
+     * @throws \Throwable
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
-        $this->app = new ServerApplication();
+        $this->app = new ServerApplication($request, $response);
+        $this->app->handling();
+
+
     }
 
     /**
@@ -455,44 +451,23 @@ class HttpServer extends BaseServer
      */
     private function clientRuning(SwooleRequest $request, SwooleResponse $response)
     {
-        $this->app = new ClientApplication();
-//            if (isset($request->header['origin'])) {
-//                $origin = true;
-//                if (is_array(Config::get('application.access.origin'))) {
-//                    in_array($request->header['origin'], Config::get('application.access.origin')) ? : $origin = false;
-//                } else {
-//                    $request->header['origin'] == Config::get('application.access.origin') ? : $origin = false;
-//                }
-//                if ($origin) {
-//                    $response->header('Access-Control-Allow-Origin', $request->header['origin']);
-//                    $response->header('Access-Control-Allow-Credentials', 'true');
-//                    $response->header('Access-Control-Max-Age', '3600');
-//                    $response->header('Access-Control-Allow-Headers', 'Content-Type, Cookie, token, timestamp, level, signstr, identification_code');
-//                    $response->header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-//                }
-//              if ($request->server['request_method'] == 'OPTIONS') {
-//                  $response->status(200);
-//                  $response->end();
-//              }
-//            }
+        $this->app = new ClientApplication($request, $response);
+        $this->app->handling();
 
-//                // 应用初始化
-//                $this->app->initialize();
-//                $this->app->Handling($request, $response);
-//                $this->app->destruct();
-//            }
+
     }
 
     /**
      * 独立端
      * @param SwooleRequest $request
      * @param SwooleResponse $response
+     * @throws \Throwable
      */
     private function aloneRuning(SwooleRequest $request, SwooleResponse $response)
     {
         $this->app = new AloneApplication($request, $response);
-
-
+        $this->app->handling();
+//        $this->app->destruct();
     }
 
 }

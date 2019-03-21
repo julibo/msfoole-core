@@ -9,19 +9,21 @@
 // | Author: carson <yuzhanwei@aliyun.com>
 // +----------------------------------------------------------------------
 
-namespace Julibo\Msfoole\Facade;
+namespace Julibo\Msfoole\Interfaces;
 
-use think\Facade;
+use Swoole\Http\Request as SwooleRequest;
+use Swoole\Http\Response as SwooleResponse;
 
-class Config extends Facade
+
+interface Application
 {
-    /**
-     * 获取当前Facade对应类名（或者已经绑定的容器对象标识）
-     * @access protected
-     * @return string
-     */
-    protected static function getFacadeClass()
-    {
-        return 'Julibo\Msfoole\Config';
-    }
+
+    public function __construct(SwooleRequest $request, SwooleResponse $response);
+
+    public function init();
+
+    public function handling();
+
+    public function destruct();
+
 }

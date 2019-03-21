@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微API服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -41,4 +41,4 @@ $logConf = \Julibo\Msfoole\Facade\Config::get('log');
 \Julibo\Msfoole\Facade\Log::launch($logConf);
 
 // 注册错误和异常处理机制
-// \Julibo\Msfoole\Error::register();
+\Julibo\Msfoole\Error::register();

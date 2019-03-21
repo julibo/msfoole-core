@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -43,7 +43,7 @@ class Log extends ThinkLog
      * @return $this
      * @throws \Exception
      */
-    public function launch($config = [], $chan = null)
+    public function launch(array $config = [], $chan = null)
     {
         $this->init($config);
         $this->chan = $chan;
@@ -54,29 +54,26 @@ class Log extends ThinkLog
      * 开启通道
      * @param $chan
      */
-    public function setChan($chan)
+    public function setChan(Channel $chan)
     {
         $this->chan = $chan;
     }
 
     /**
      * 设置环境参数
-     * @param $key
-     * @param null $method
-     * @param null $uri
-     * @param null $ip
+     * @param httpRequest $httpRequest
      */
-    public function setEnv($key = null, $method = null, $uri = null, $ip = null)
+    public function setEnv(httpRequest $httpRequest)
     {
-        $this->key = $key ?? Helper::guid();
-        $this->method = $method;
-        $this->uri = $uri;
-        $this->ip = $ip;
+        $this->key = $httpRequest->identification ?? Helper::guid();
+        $this->method = $httpRequest->getRequestMethod();
+        $this->uri = $httpRequest->getRequestUri();
+        $this->ip = $httpRequest->getRemoteAddr();
     }
 
     /**
      * 向队列中推送日志
-     * @param $msg
+     * @param string $msg
      * @param string $type
      * @param array $context
      */
@@ -113,7 +110,7 @@ class Log extends ThinkLog
      * 记录日志信息
      * @access public
      * @param  string $level     日志级别
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @param bool $force 强制直接写入
      * @return void
@@ -137,7 +134,7 @@ class Log extends ThinkLog
     /**
      * 记录emergency信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -149,7 +146,7 @@ class Log extends ThinkLog
     /**
      * 记录警报信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -161,7 +158,7 @@ class Log extends ThinkLog
     /**
      * 记录紧急情况
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -173,7 +170,7 @@ class Log extends ThinkLog
     /**
      * 记录错误信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @param bool $force 强制直接写入
      * @return void
@@ -186,7 +183,7 @@ class Log extends ThinkLog
     /**
      * 记录warning信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -198,7 +195,7 @@ class Log extends ThinkLog
     /**
      * 记录notice信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -210,7 +207,7 @@ class Log extends ThinkLog
     /**
      * 记录一般信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -222,7 +219,7 @@ class Log extends ThinkLog
     /**
      * 记录调试信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -234,7 +231,7 @@ class Log extends ThinkLog
     /**
      * 记录sql信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */
@@ -246,7 +243,7 @@ class Log extends ThinkLog
     /**
      * 记录慢查询信息
      * @access public
-     * @param  mixed  $message   日志信息
+     * @param  string  $message   日志信息
      * @param  array  $context   替换内容
      * @return void
      */

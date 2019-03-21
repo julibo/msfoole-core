@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -10,8 +10,6 @@
 // +----------------------------------------------------------------------
 
 namespace Julibo\Msfoole;
-
-use think\helper\Arr;
 
 class Cache
 {
@@ -31,16 +29,6 @@ class Cache
      * @var
      */
     protected $driver;
-
-    /**
-     * Cache constructor.
-     * @param array $config
-     */
-//    public function __construct(array $config = [])
-//    {
-//        $this->config = $config;
-//        $this->handle = $this->connect($config);
-//    }
 
     /**
      * 对象初始化
