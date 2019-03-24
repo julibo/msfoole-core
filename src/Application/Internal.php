@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -15,7 +15,7 @@ use Julibo\Msfoole\Interfaces\Application;
 use Swoole\Http\Request as SwooleRequest;
 use Swoole\Http\Response as SwooleResponse;
 
-class Client implements Application
+class Internal implements Application
 {
     public function __construct(SwooleRequest $request, SwooleResponse $response)
     {

@@ -72,12 +72,12 @@ class Server implements Application
      */
     public function destruct()
     {
-        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
-        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-        if ($executionTime > Config::get('log.slow_time')) {
-            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-        }
+//        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
+//        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
+//        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+//        if ($executionTime > Config::get('log.slow_time')) {
+//            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+//        }
     }
 
     /**
@@ -208,10 +208,9 @@ class Server implements Application
             # step 1 查找对应的服务
             $freedom = $this->resolve();
             # step 2 在需要认证的服务里进行用户权限认证
-            if ($freedom) {
+            if (!$freedom) {
                 $this->userReview();
             }
-
             # step 3 选择可用服务
             $server = $this->selectServer();
             # step 4 调用服务

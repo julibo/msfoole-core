@@ -22,6 +22,7 @@ use Julibo\Msfoole\Helper;
 use Julibo\Msfoole\Application\Alone as AloneApplication;
 use Julibo\Msfoole\Application\Client as ClientApplication;
 use Julibo\Msfoole\Application\Server as ServerApplication;
+use Julibo\Msfoole\Application\Internal as InternalApplication;
 use Julibo\Msfoole\Interfaces\Server as BaseServer;
 
 class HttpServer extends BaseServer
@@ -36,13 +37,19 @@ class HttpServer extends BaseServer
      * 注册端口
      * @var int
      */
-    private $regPort = 9222;
+    protected $regPort = 9222;
+
+    /**
+     * 内部调用端口
+     * @var int
+     */
+    protected $callPort = 9333;
 
     /**
      * 健康检查key
      * @var string
      */
-    private $robotkey = 'regMachine';
+    protected $robotkey = 'regMachine';
 
     /**
      * 支持的响应事件
@@ -71,6 +78,8 @@ class HttpServer extends BaseServer
      * @var 通道
      */
     protected $chan;
+    
+    protected $permit;
 
     /**
      * 初始化
@@ -87,6 +96,9 @@ class HttpServer extends BaseServer
             }
             if (!empty($config['machine']['robotkey'])) {
                 $this->robotkey =  $config['machine']['robotkey'];
+            }
+            if (!empty($config['call']['port'])) {
+                $this->callPort =  $config['call']['port'];
             }
         }
         unset($config['host'], $config['port'], $config['ssl'], $config['option']);
@@ -107,8 +119,12 @@ class HttpServer extends BaseServer
         if ($this->pattern == 2) {
             $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
             $reg_server->on("request", [$this, "regMachine"]);
+            $reg_server = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
+            $reg_server->on("request", [$this, "callServer"]);
             # 开启健康监测
             // $this->monitorHealth();
+        } else if ($this->pattern == 1) {
+            $this->permit = Helper::guid();
         }
     }
 
@@ -395,9 +411,21 @@ class HttpServer extends BaseServer
     }
 
     /**
+     * 跨服务调用 不需要鉴权
+     * @param SwooleRequest $request
+     * @param SwooleResponse $response
+     */
+    public function callServer(SwooleRequest $request, SwooleResponse $response)
+    {
+        $this->app = new InternalApplication($request, $response);
+        $this->app->handling();
+    }
+
+    /**
      * request回调
-     * @param $request
-     * @param $response
+     * @param SwooleRequest $request
+     * @param SwooleResponse $response
+     * @throws \Throwable
      */
     public function onRequest(SwooleRequest $request, SwooleResponse $response)
     {
@@ -412,19 +440,13 @@ class HttpServer extends BaseServer
 
             switch ($this->pattern) {
                 case 2:
-                    go (function () use($request, $response) {
-                        $this->serverRuning($request, $response);
-                    });
+                    $this->serverRuning($request, $response);
                     break;
                 case 1:
-                    go (function () use($request, $response) {
-                        $this->clientRuning($request, $response);
-                    });
+                    $this->clientRuning($request, $response);
                     break;
                 default:
-                    go (function () use($request, $response) {
-                        $this->aloneRuning($request, $response);
-                    });
+                    $this->aloneRuning($request, $response);
                     break;
             }
         }
@@ -438,6 +460,7 @@ class HttpServer extends BaseServer
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
+        var_dump($this->permit);
         $this->app = new ServerApplication($request, $response);
         $this->app->handling();
 
@@ -467,7 +490,7 @@ class HttpServer extends BaseServer
     {
         $this->app = new AloneApplication($request, $response);
         $this->app->handling();
-//        $this->app->destruct();
+        $this->app->destruct();
     }
 
 }
