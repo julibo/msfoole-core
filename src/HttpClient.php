@@ -19,7 +19,7 @@ class HttpClient
 
     private $host = 'localhost';
 
-    public function __construct($ip, $port, $identification, $permit, $token = '',  $ssl = false, $timeout = 1)
+    public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 1)
     {
         $this->client = new Client($ip, $port, $ssl);
         $this->client->setHeaders([
@@ -27,36 +27,67 @@ class HttpClient
             'User-Agent' => 'Chrome/49.0.2587.3',
             'Accept' => 'text/html,application/xhtml+xml,application/xml',
             'Accept-Encoding' => 'gzip',
-            'token' => $token,
-            'identification' => $identification,
             'permit' => $permit,
+            'identification' => $identification,
+            'token' => $token,
         ]);
         $this->client->set([ 'timeout' => $timeout]);
-        $this->client->setDefer();
+    }
 
+    /**
+     * @param $url
+     * @return array
+     */
+    public function get($url)
+    {
+        $this->client->get($url);
+        $data =  $this->client->body;
+        $statusCode = $this->client->statusCode;
+        $this->client->close();
+        return ['data' => $data, 'statusCode' => $statusCode ];
     }
 
     /**
      * @param string $url
      * @return mixed
      */
-    public function getSubServer($url)
+    public function getDefer($url)
     {
+        $this->client->setDefer();
         $this->client->get($url);
+        return $this->client;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function recv()
+    {
         $result  = $this->client->recv();
         return $result;
     }
 
     /**
      * @param $url
-     * @param $data
-     * @return mixed
+     * @param array $data
+     * @return array
      */
-    public function postSubServer($url, $data)
+    public function post($url, array $data)
     {
         $this->client->post($url, $data);
-        $result = $this->client->recv();
-        return $result;
+        $data =  $this->client->body;
+        $statusCode = $this->client->statusCode;
+        $this->client->close();
+        return ['data' => $data, 'statusCode' => $statusCode];
     }
 
+    /**
+     * @param $url
+     * @param $data
+     */
+    public function postDefer($url, array $data)
+    {
+        $this->client->setDefer();
+        $this->client->post($url, $data);
+    }
 }

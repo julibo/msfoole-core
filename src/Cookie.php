@@ -83,7 +83,7 @@ class Cookie
         if ($expire == 0) {
             $expire = $this->config['expire'] + time();
         } else {
-            $expire = time()+$expire;
+            $expire = time() + $expire;
         }
         $expire = strtotime('+8 hours', $expire);
         $path = $this->config['path'] ?: '/';
@@ -126,7 +126,7 @@ class Cookie
     {
         $uuid = $uuid ?? Helper::guid();
         $this->setCookie($this->config['token'], $uuid);
-        Cache::set($this->config['cache_prefix'].$uuid, $user, $this->config['expire']);
+        Cache::set($this->config['cache_prefix'] . $uuid, $user, $this->config['expire']);
     }
 
 
@@ -143,7 +143,7 @@ class Cookie
         } else {
             $cookie = false;
         }
-        $user = Cache::get($this->config['cache_prefix'].$token);
+        $user = Cache::get($this->config['cache_prefix'] . $token);
         if ($user) {
             $deadline = Cache::getPeriod($token);
             if ($deadline < $this->config['auto_selling']) {

@@ -216,7 +216,7 @@ class HttpRequest
         $this->header = $header;
         $this->host = $this->header['host'] ?? null;
         $this->origin = $this->header['origin'] ?? null;
-        $this->identification = $this->header['identification_code'] ?? Helper::guid();
+        $this->identification = $this->header['identification'] ?? Helper::guid();
         if (isset($this->header['x-real-ip'])) {
             $this->remote_addr = $this->header['x-real-ip'];
         }

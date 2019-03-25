@@ -11,55 +11,21 @@
 
 namespace Julibo\Msfoole\Application;
 
-use Swoole\Http\Request as SwooleRequest;
-use Swoole\Http\Response as SwooleResponse;
 use Julibo\Msfoole\Facade\Config;
 use Julibo\Msfoole\Facade\Cookie;
 use Julibo\Msfoole\Facade\Cache;
 use Julibo\Msfoole\Facade\Log;
-use Julibo\Msfoole\HttpRequest;
-use Julibo\Msfoole\Response;
 use Julibo\Msfoole\Exception;
 use Julibo\Msfoole\Prompt;
+use Julibo\Msfoole\HttpClient;
 use Julibo\Msfoole\Interfaces\Application;
 
-class Server implements Application
+class Server extends Application
 {
-    /**
-     * http请求
-     * @var
-     */
-    private $httpRequest;
-
-    /**
-     * http应答
-     * @var
-     */
-    private $httpResponse;
-
-    // 开始时间和内存占用
-    private $beginTime;
-    private $beginMem;
-
-    /**
-     * 构造函数
-     * Alone constructor.
-     * @param SwooleRequest $request
-     * @param SwooleResponse $response
-     */
-    public function __construct(SwooleRequest $request, SwooleResponse $response)
-    {
-        $this->beginTime = microtime(true);
-        $this->beginMem  = memory_get_usage();
-        $this->httpResponse = new Response($response);
-        $this->httpRequest = new HttpRequest($request);
-        $this->init();
-    }
-
     /**
      * 初始化
      */
-    public function init()
+    protected function init()
     {
         $this->httpRequest->init();
         $this->httpRequest->resolve();
@@ -72,12 +38,12 @@ class Server implements Application
      */
     public function destruct()
     {
-//        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
-//        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-//        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-//        if ($executionTime > Config::get('log.slow_time')) {
-//            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-//        }
+        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
+        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
+        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        if ($executionTime > Config::get('log.slow_time')) {
+            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        }
     }
 
     /**
@@ -141,9 +107,13 @@ class Server implements Application
         if (empty($user) || empty($user['power'])) {
             throw new Exception(Prompt::$server['NOT_LOGIN']['msg'], Prompt::$server['NOT_LOGIN']['code']);
         }
-        $demand = sprintf("%s.%s.%s", $this->httpRequest->modular, $this->httpRequest->controller, $this->httpRequest->action);
-        if (!is_array($user['power']) || !in_array($demand, $user['power'])) {
-            throw new Exception(Prompt::$server['NOT_POWER']['msg'], Prompt::$server['NOT_POWER']['code']);
+        $demand1 = sprintf("%s.%s.%s", $this->httpRequest->modular, $this->httpRequest->controller, $this->httpRequest->action);
+        $demand2 = sprintf("%s.%s.*", $this->httpRequest->modular, $this->httpRequest->controller);
+        $demand3 = sprintf("%s.*.*", $this->httpRequest->modular);
+        if ($user['power'] != '*') {
+            if (!is_array($user['power']) || (!in_array($demand1, $user['power']) && !in_array($demand2, $user['power']) && !in_array($demand3, $user['power']))) {
+                throw new Exception(Prompt::$server['NOT_POWER']['msg'], Prompt::$server['NOT_POWER']['code']);
+            }
         }
     }
 
@@ -164,14 +134,19 @@ class Server implements Application
             }
         }
         if ($server) {
-            $tmp = [];
-            foreach ($server as $k => $v) {
-                for($i = 0; $i < $v['power']; $i++) {
-                    $tmp[] = $k;
+            if (count($server) == 1) {
+                $s = 0;
+            } else {
+                $tmp = [];
+                foreach ($server as $k => $v) {
+                    for($i = 0; $i < $v['power']; $i++) {
+                        $tmp[] = $k;
+                    }
                 }
+                $seed = array_rand($tmp);
+                $s = $tmp[$seed];
             }
-            $seed = array_rand($tmp);
-            return $server[$tmp[$seed]];
+            return $server[$s];
         } else {
             throw new Exception(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
         }
@@ -181,21 +156,18 @@ class Server implements Application
      * 调用服务
      * @param $ip
      * @param $port
+     * @param $permit
      * @return mixed
      */
-    public function working($ip, $port)
+    private function working($ip, $port, $permit)
     {
-        $cli = new \Swoole\Coroutine\Http\Client($ip, $port);
-        $cli->setHeaders([
-            'Host' => "localhost",
-            "User-Agent" => 'Chrome/49.0.2587.3',
-            'Accept' => 'text/html,application/xhtml+xml,application/xml',
-            'Accept-Encoding' => 'gzip',
-        ]);
-        $cli->set([ 'timeout' => 1]);
-        $cli->get($this->httpRequest->getPathInfo());
-        $result = $cli->body;
-        $cli->close();
+        $token = Cookie::getToken();
+        $identification = $this->httpRequest->identification;
+        $cli = new HttpClient($ip, $port, $permit, $identification, $token);
+        $method = strtolower($this->httpRequest->getRequestMethod());
+        $url = $this->httpRequest->getPathInfo();
+        $params = $this->httpRequest->params;
+        $result = $cli->$method($url, $params);
         return $result;
     }
 
@@ -214,7 +186,8 @@ class Server implements Application
             # step 3 选择可用服务
             $server = $this->selectServer();
             # step 4 调用服务
-            $data = $this->working($server['ip'], $server['port']);
+            $data = $this->working($server['ip'], $server['port'], $server['permit']);
+            var_dump($data);
 
             # step 5 封装结果
             $result = "<h1>Hello Swoole. #".rand(1000, 9999)."</h1>";

@@ -19,6 +19,7 @@ use Julibo\Msfoole\Facade\Log;
 use Julibo\Msfoole\Facade\Cache;
 use Julibo\Msfoole\Channel;
 use Julibo\Msfoole\Helper;
+use Julibo\Msfoole\HttpClient;
 use Julibo\Msfoole\Application\Alone as AloneApplication;
 use Julibo\Msfoole\Application\Client as ClientApplication;
 use Julibo\Msfoole\Application\Server as ServerApplication;
@@ -139,18 +140,10 @@ class HttpServer extends BaseServer
             swoole_timer_tick(60000, function () {
                 $robot = Cache::HGETALL($this->robotkey);
                 $clients = [];
-                foreach ($robot as $k=>$vo) {
+                foreach ($robot as $k => $vo) {
                     $server = json_decode($vo, true);
-                    $cli = new \Swoole\Coroutine\Http\Client($server['ip'], $server['port']);
-                    $cli->setHeaders([
-                        'Host' => "localhost",
-                        "User-Agent" => 'Chrome/49.0.2587.3',
-                        'Accept' => 'text/html,application/xhtml+xml,application/xml',
-                        'Accept-Encoding' => 'gzip',
-                    ]);
-                    $cli->set([ 'timeout' => 1]);
-                    $cli->setDefer();
-                    $cli->get($server['health_uri']);
+                    $cli = new HttpClient($server['ip'], $server['port'], $server['permit']);
+                    $cli->getDefer($server['health_uri']);
                     $clients[$k] = $cli;
                 }
                 foreach ($clients as $k => $cli) {
@@ -229,14 +222,7 @@ class HttpServer extends BaseServer
         if ($this->pattern == 1) {
             $application = Config::get('application');
             $sidecar = Config::get('sidecar');
-            $cli = new \Swoole\Coroutine\Http\Client($sidecar['server_ip'], $sidecar['server_port']);
-            $cli->setHeaders([
-                'Host' => "localhost",
-                "User-Agent" => 'Chrome/49.0.2587.3',
-                'Accept' => 'text/html,application/xhtml+xml,application/xml',
-                'Accept-Encoding' => 'gzip',
-            ]);
-            $cli->set([ 'timeout' => 3]);
+            $cli = new HttpClient($sidecar['server_ip'], $sidecar['server_port']);
             $params = array(
                 'server' => strtolower($application['name']),
                 'ip' => $sidecar['ip'],
@@ -244,7 +230,8 @@ class HttpServer extends BaseServer
                 'version' => $application['version'],
                 'timestamp' => time(),
                 'health_uri' => $sidecar['health_uri'],
-                'white_list' => $sidecar['white_list'] ?? ''
+                'white_list' => $sidecar['white_list'] ?? '',
+                'permit' => $this->permit
             );
             $regSigner = $this->regSigner($params);
             $params['signer'] = $regSigner;
@@ -254,6 +241,9 @@ class HttpServer extends BaseServer
         }
     }
 
+    /**
+     * @param \Swoole\Server $server
+     */
     public function onShutdown(\Swoole\Server $server)
     {
         // echo "主进程结束";
@@ -261,12 +251,18 @@ class HttpServer extends BaseServer
         Helper::sendDingRobotTxt($tips);
     }
 
+    /**
+     * @param \Swoole\Server $server
+     */
     public function onManagerStart(\Swoole\Server $server)
     {
         // echo "管理进程启动";
         Helper::setProcessTitle("msfoole:manager");
     }
 
+    /**
+     * @param \Swoole\Server $server
+     */
     public function onManagerStop(\Swoole\Server $server)
     {
         // echo "管理进程停止";
@@ -274,6 +270,10 @@ class HttpServer extends BaseServer
         Helper::sendDingRobotTxt($tips);
     }
 
+    /**
+     * @param \Swoole\Server $server
+     * @param int $worker_id
+     */
     public function onWorkerStop(\Swoole\Server $server, int $worker_id)
     {
         // echo "worker进程终止";
@@ -281,6 +281,10 @@ class HttpServer extends BaseServer
         Helper::sendDingRobotTxt($tips);
     }
 
+    /**
+     * @param \Swoole\Server $server
+     * @param int $worker_id
+     */
     public function onWorkerExit(\Swoole\Server $server, int $worker_id)
     {
         // echo "worker进程退出";
@@ -288,12 +292,24 @@ class HttpServer extends BaseServer
         Helper::sendDingRobotTxt($tips);
     }
 
+    /**
+     * @param \Swoole\Server $serv
+     * @param int $worker_id
+     * @param int $worker_pid
+     * @param int $exit_code
+     * @param int $signal
+     */
     public function onWorkerError(\Swoole\Server $serv, int $worker_id, int $worker_pid, int $exit_code, int $signal)
     {
         $error = sprintf("worker进程异常:[%d] %d 退出的状态码为%d, 退出的信号为%d", $worker_pid, $worker_id, $exit_code, $signal);
         Helper::sendDingRobotTxt($error);
     }
 
+    /**
+     * @param \Swoole\Server $server
+     * @param int $fd
+     * @param int $reactorId
+     */
     public function onClose(\Swoole\Server $server, int $fd, int $reactorId)
     {
         // echo sprintf('%s的连接关闭', $fd);
@@ -378,7 +394,8 @@ class HttpServer extends BaseServer
             $signer = $request->post['signer'] ?? '';
             $health_uri = $request->post['health_uri'] ?? '';
             $white_list = $request->post['white_list'] ?? '';
-            if ($server && $ip && $port && $version && $timestamp && $signer && $health_uri) {
+            $permit = $request->post['permit'] ?? '';
+            if ($server && $ip && $port && $version && $timestamp && $signer && $health_uri && $permit) {
                 $regSigner = $this->regSigner([
                     'server' => $server,
                     'ip' => $ip,
@@ -386,10 +403,11 @@ class HttpServer extends BaseServer
                     'version' => $version,
                     'timestamp' => $timestamp,
                     'health_uri' => $health_uri,
-                    'white_list' => $white_list
+                    'white_list' => $white_list,
+                    'permit' => $permit
                 ]);
                 if ($regSigner == $signer) {
-                    $field = $server .':'.$ip.':'.$port;
+                    $field = sprintf("%s:%s:%s", $server, $ip, $port);
                     $robot = [
                         'server' => $server,
                         'ip' => $ip,
@@ -397,6 +415,7 @@ class HttpServer extends BaseServer
                         'version' => $version,
                         'health_uri' => $health_uri,
                         'white_list' => $white_list,
+                        'permit' => $permit,
                         'create_time' => date('Y-m-d H:i:s'),
                         'power' => 100,
                         'counter' => 0,
@@ -417,8 +436,11 @@ class HttpServer extends BaseServer
      */
     public function callServer(SwooleRequest $request, SwooleResponse $response)
     {
+        // 执行应用并响应
+         print_r($request);
         $this->app = new InternalApplication($request, $response);
         $this->app->handling();
+        $this->app->destruct();
     }
 
     /**
@@ -460,11 +482,9 @@ class HttpServer extends BaseServer
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
-        var_dump($this->permit);
         $this->app = new ServerApplication($request, $response);
         $this->app->handling();
-
-
+        $this->app->destruct();
     }
 
     /**
@@ -476,8 +496,7 @@ class HttpServer extends BaseServer
     {
         $this->app = new ClientApplication($request, $response);
         $this->app->handling();
-
-
+        $this->app->destruct();
     }
 
     /**
