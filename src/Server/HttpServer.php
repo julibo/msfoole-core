@@ -11,9 +11,9 @@
 
 namespace Julibo\Msfoole\Server;
 
+use Swoole\Process;
 use Swoole\Http\Request as SwooleRequest;
 use Swoole\Http\Response as SwooleResponse;
-use Swoole\Process;
 use Julibo\Msfoole\Facade\Config;
 use Julibo\Msfoole\Facade\Log;
 use Julibo\Msfoole\Facade\Cache;
@@ -123,7 +123,7 @@ class HttpServer extends BaseServer
             $reg_server = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
             $reg_server->on("request", [$this, "callServer"]);
             # 开启健康监测
-            // $this->monitorHealth();
+            $this->monitorHealth();
         } else if ($this->pattern == 1) {
             $this->permit = Helper::guid();
         }
@@ -220,24 +220,27 @@ class HttpServer extends BaseServer
         Helper::setProcessTitle("msfoole:master");
         // 客户端启动进行服务注册
         if ($this->pattern == 1) {
-            $application = Config::get('application');
-            $sidecar = Config::get('sidecar');
-            $cli = new HttpClient($sidecar['server_ip'], $sidecar['server_port']);
-            $params = array(
-                'server' => strtolower($application['name']),
-                'ip' => $sidecar['ip'],
-                'port' => $sidecar['port'],
-                'version' => $application['version'],
-                'timestamp' => time(),
-                'health_uri' => $sidecar['health_uri'],
-                'white_list' => $sidecar['white_list'] ?? '',
-                'permit' => $this->permit
-            );
-            $regSigner = $this->regSigner($params);
-            $params['signer'] = $regSigner;
-            $cli->post('/', $params);
-            echo $cli->body;
-            $cli->close();
+            go(function () {
+                $application = Config::get('application');
+                $sidecar = Config::get('sidecar');
+                $cli = new HttpClient($sidecar['server_ip'], $sidecar['server_port']);
+                $params = array(
+                    'server' => strtolower($application['name']),
+                    'ip' => $sidecar['ip'],
+                    'port' => $sidecar['port'],
+                    'version' => $application['version'],
+                    'timestamp' => time(),
+                    'health_uri' => $sidecar['health_uri'],
+                    'white_list' => $sidecar['white_list'] ?? '',
+                    'permit' => $this->permit
+                );
+                $regSigner = $this->regSigner($params);
+                $params['signer'] = $regSigner;
+                $cli->post('/', $params);
+                echo $cli->body;
+                $cli->close();
+            });
+
         }
     }
 
@@ -383,7 +386,6 @@ class HttpServer extends BaseServer
      */
     public function regMachine(SwooleRequest $request, SwooleResponse $response)
     {
-//        $res = Cache::hscan('regMachine', null, 'test*', 100);
         $result = 0;
         if ($request->post) {
             $server = $request->post['server'] ?? '';
@@ -452,14 +454,13 @@ class HttpServer extends BaseServer
     public function onRequest(SwooleRequest $request, SwooleResponse $response)
     {
         // 执行应用并响应
-        // print_r($request);
+        print_r($request);
         $uri = $request->server['request_uri'];
         if ($uri == '/favicon.ico') {
             $response->status(404);
             $response->end();
         } else {
             // todo 浏览器跨域
-
             switch ($this->pattern) {
                 case 2:
                     $this->serverRuning($request, $response);
