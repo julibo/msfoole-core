@@ -17,16 +17,15 @@ class HttpClient
 {
     private $client;
 
-    private $host = 'localhost';
-
     public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 1)
     {
         $this->client = new Client($ip, $port, $ssl);
         $this->client->setHeaders([
-            'Host' => $this->host,
-            'User-Agent' => 'Chrome/49.0.2587.3',
-            'Accept' => 'text/html,application/xhtml+xml,application/xml',
-            'Accept-Encoding' => 'gzip',
+            'Host' => 'localhost',
+            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Encoding' => 'gzip, deflate, br',
+            'accept-language' => 'zh-CN,zh;q=0.9',
             'permit' => $permit,
             'identification' => $identification,
             'token' => $token,
@@ -38,13 +37,14 @@ class HttpClient
      * @param $url
      * @return array
      */
-    public function get($url)
+    public function get($url) : array
     {
         $this->client->get($url);
         $data =  $this->client->body;
         $statusCode = $this->client->statusCode;
+        $errCode = $this->client->errCode;
         $this->client->close();
-        return ['data' => $data, 'statusCode' => $statusCode ];
+        return ['data' => $data, 'statusCode' => $statusCode, 'errCode' => $errCode ];
     }
 
     /**
@@ -55,7 +55,7 @@ class HttpClient
     {
         $this->client->setDefer();
         $this->client->get($url);
-        return $this->client;
+        return $this;
     }
 
     /**
@@ -68,6 +68,18 @@ class HttpClient
     }
 
     /**
+     * @return array
+     */
+    public function answer() : array
+    {
+        $data =  $this->client->body;
+        $statusCode = $this->client->statusCode;
+        $errCode = $this->client->errCode;
+        $this->client->close();
+        return ['data' => $data, 'statusCode' => $statusCode, 'errCode' => $errCode ];
+    }
+
+    /**
      * @param $url
      * @param array $data
      * @return array
@@ -77,17 +89,20 @@ class HttpClient
         $this->client->post($url, $data);
         $data =  $this->client->body;
         $statusCode = $this->client->statusCode;
+        $errCode = $this->client->errCode;
         $this->client->close();
-        return ['data' => $data, 'statusCode' => $statusCode];
+        return ['data' => $data, 'statusCode' => $statusCode, 'errCode' => $errCode];
     }
 
     /**
      * @param $url
-     * @param $data
+     * @param array $data
+     * @return $this
      */
     public function postDefer($url, array $data)
     {
         $this->client->setDefer();
         $this->client->post($url, $data);
+        return $this;
     }
 }

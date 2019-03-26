@@ -79,16 +79,25 @@ class HttpServer extends BaseServer
      * @var 通道
      */
     protected $chan;
-    
+
+    /**
+     * @var 许可证
+     */
     protected $permit;
+
+    /**
+     * @var 应用名
+     */
+    protected $appName;
 
     /**
      * 初始化
      */
     protected function init()
     {
+        $this->appName = Config::get('application.name') ?? '';
         $this->option['upload_tmp_dir'] = TEMP_PATH;
-        $this->option['http_parse_post'] = false;
+        $this->option['http_parse_post'] = true;
         $this->option['http_compression'] = true;
         $config = Config::get('msfoole') ?? [];
         if ($this->pattern == 2) {
@@ -136,7 +145,7 @@ class HttpServer extends BaseServer
     {
         $monitor = new Process(function (Process $process) {
             // echo "健康监测进程启动";
-            Helper::setProcessTitle("msfoole:health");
+            Helper::setProcessTitle("msfoole:health_" . $this->appName);
             swoole_timer_tick(60000, function () {
                 $robot = Cache::HGETALL($this->robotkey);
                 $clients = [];
@@ -150,10 +159,11 @@ class HttpServer extends BaseServer
                     $server = Cache::HGET($this->robotkey, $k);
                     $server = json_decode($server, true);
                     $server['counter'] = $server['counter']++;
-                    $cli->recv();
-                    if ($cli->body) {
+                    $res = $cli->recv();
+                    $respond = $cli->answer();
+                    if ($res && !empty($respond) && $respond['statusCode'] == 200) {
                         if ($server['power'] < 100) {
-                            $server['power'] = $server['power']++;
+                            $server['power'] = $server['power'] + 1;
                         }
                         $server['living'] = time();
                         Cache::HSET($this->robotkey, $k, json_encode($server));
@@ -180,7 +190,7 @@ class HttpServer extends BaseServer
         if ($paths) {
             $monitor = new Process(function (Process $process) use ($paths) {
                 // echo "文件监控进程启动";
-                Helper::setProcessTitle("msfoole:monitor");
+                Helper::setProcessTitle("msfoole:monitor_" . $this->appName);
                 $timer = $this->config['monitor']['interval'] ?? 10;
                 swoole_timer_tick($timer * 1000, function () use($paths) {
                     if (!is_array($paths)) {
@@ -217,7 +227,7 @@ class HttpServer extends BaseServer
     public function onStart(\Swoole\Server $server)
     {
         // echo "主进程启动";
-        Helper::setProcessTitle("msfoole:master");
+        Helper::setProcessTitle("msfoole:master_" . $this->appName);
         // 客户端启动进行服务注册
         if ($this->pattern == 1) {
             go(function () {
@@ -225,7 +235,7 @@ class HttpServer extends BaseServer
                 $sidecar = Config::get('sidecar');
                 $cli = new HttpClient($sidecar['server_ip'], $sidecar['server_port']);
                 $params = array(
-                    'server' => strtolower($application['name']),
+                    'server' => ucwords($application['name']),
                     'ip' => $sidecar['ip'],
                     'port' => $sidecar['port'],
                     'version' => $application['version'],
@@ -236,9 +246,12 @@ class HttpServer extends BaseServer
                 );
                 $regSigner = $this->regSigner($params);
                 $params['signer'] = $regSigner;
-                $cli->post('/', $params);
-                echo $cli->body;
-                $cli->close();
+                $res = $cli->post('/', $params);
+                if (!empty($res) && $res['errCode'] == 0 && $res['statusCode'] == 200 && $res['data'] == 1) {
+                    echo "服务注册成功";
+                } else {
+                    echo "服务注册失败";
+                }
             });
 
         }
@@ -260,7 +273,7 @@ class HttpServer extends BaseServer
     public function onManagerStart(\Swoole\Server $server)
     {
         // echo "管理进程启动";
-        Helper::setProcessTitle("msfoole:manager");
+        Helper::setProcessTitle("msfoole:manager_" . $this->appName);
     }
 
     /**
@@ -326,7 +339,7 @@ class HttpServer extends BaseServer
     public function onWorkerStart(\Swoole\Server $server, int $worker_id)
     {
         // echo "worker进程启动";
-        Helper::setProcessTitle("msfoole:worker");
+        Helper::setProcessTitle("msfoole:worker_" . $this->appName);
         // step 1 创建通道
         $chanConfig = $this->config['channel'];
         $capacity = $chanConfig['capacity'] ?? 100;
@@ -495,6 +508,7 @@ class HttpServer extends BaseServer
      */
     private function clientRuning(SwooleRequest $request, SwooleResponse $response)
     {
+        # todo 没有permit的不允许访问
         $this->app = new ClientApplication($request, $response);
         $this->app->handling();
         $this->app->destruct();
