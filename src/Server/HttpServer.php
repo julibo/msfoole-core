@@ -132,7 +132,7 @@ class HttpServer extends BaseServer
             $reg_server = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
             $reg_server->on("request", [$this, "callServer"]);
             # 开启健康监测
-            $this->monitorHealth();
+            // $this->monitorHealth();
         } else if ($this->pattern == 1) {
             $this->permit = Helper::guid();
         }
@@ -235,7 +235,7 @@ class HttpServer extends BaseServer
                 $sidecar = Config::get('sidecar');
                 $cli = new HttpClient($sidecar['server_ip'], $sidecar['server_port']);
                 $params = array(
-                    'server' => ucwords($application['name']),
+                    'server' => ucfirst($application['name']),
                     'ip' => $sidecar['ip'],
                     'port' => $sidecar['port'],
                     'version' => $application['version'],
@@ -467,7 +467,7 @@ class HttpServer extends BaseServer
     public function onRequest(SwooleRequest $request, SwooleResponse $response)
     {
         // 执行应用并响应
-        print_r($request);
+        // print_r($request);
         $uri = $request->server['request_uri'];
         if ($uri == '/favicon.ico') {
             $response->status(404);
@@ -509,9 +509,15 @@ class HttpServer extends BaseServer
     private function clientRuning(SwooleRequest $request, SwooleResponse $response)
     {
         # todo 没有permit的不允许访问
-        $this->app = new ClientApplication($request, $response);
-        $this->app->handling();
-        $this->app->destruct();
+        var_dump($request->header['permit'], $this->permit);
+        if (empty($request->header['permit']) || $request->header['permit'] != $this->permit) {
+            $response->status(404);
+            $response->end();
+        } else {
+            $this->app = new ClientApplication($request, $response);
+            $this->app->handling();
+            $this->app->destruct();
+        }
     }
 
     /**

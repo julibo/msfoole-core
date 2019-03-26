@@ -177,9 +177,9 @@ class Server extends Application
     public function handling()
     {
         try {
+            Log::info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
             # step 1 查找对应的服务
             $freedom = $this->resolve();
-            var_dump($freedom);
             # step 2 在需要认证的服务里进行用户权限认证
             if (!$freedom) {
                 $this->userReview();

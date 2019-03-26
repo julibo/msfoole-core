@@ -498,11 +498,11 @@ class HttpRequest
     {
         $pathInfo = substr($this->path_info, 1);
         if (strpos($pathInfo, '/') === false) {
-            $this->serviceName = strtolower($pathInfo);
+            $this->serviceName = ucfirst($pathInfo);
             $this->path_info = '/';
         } else {
             $serviceName = Helper::cut_str($pathInfo, '/', 0);
-            $this->serviceName = strtolower($serviceName);
+            $this->serviceName = ucfirst($serviceName);
             $this->path_info = '/' . substr($pathInfo,strpos($pathInfo,'/') + 1);
         }
         $this->explain();

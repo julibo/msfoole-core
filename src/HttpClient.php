@@ -17,7 +17,7 @@ class HttpClient
 {
     private $client;
 
-    public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 1)
+    public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 30)
     {
         $this->client = new Client($ip, $port, $ssl);
         $this->client->setHeaders([
