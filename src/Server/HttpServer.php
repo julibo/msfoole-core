@@ -119,15 +119,17 @@ class HttpServer extends BaseServer
         Cache::init($cacheConfig);
         # 开启异步定时监控
         $this->monitorProcess();
-        # 开启注册监听
         if ($this->pattern == 2) {
-            $reg_server = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
-            $reg_server->on("request", [$this, "regMachine"]);
-            $reg_server = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
-            $reg_server->on("request", [$this, "callServer"]);
+            # 开启注册监听
+            $regServer = $this->swoole->addListener($this->host, $this->regPort, SWOOLE_SOCK_TCP);
+            $regServer->on("request", [$this, "regMachine"]);
+            # 开启内部服务监听
+            $callServer = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
+            $callServer->on("request", [$this, "callServer"]);
             # 开启健康监测
             // $this->monitorHealth();
         } else if ($this->pattern == 1) {
+            # 生成许可证
             $this->permit = Helper::guid();
         }
     }
@@ -322,7 +324,7 @@ class HttpServer extends BaseServer
      */
     public function onClose(\Swoole\Server $server, int $fd, int $reactorId)
     {
-        // echo sprintf('%s的连接关闭', $fd);
+        echo sprintf('%s的连接关闭', $fd);
     }
 
     /**
@@ -439,7 +441,7 @@ class HttpServer extends BaseServer
     }
 
     /**
-     * 跨服务调用 不需要鉴权
+     * 内部服务调用 不需要鉴权
      * @param SwooleRequest $request
      * @param SwooleResponse $response
      */
@@ -447,9 +449,25 @@ class HttpServer extends BaseServer
     {
         // 执行应用并响应
         // print_r($request);
-        $app = new InternalApplication($request, $response);
-        $app->handling();
-        $app->destruct();
+        $allow = false;
+        if (!empty($request->header['key']) && !empty($request->header['permit'])) {
+            $server = Cache::HGET($this->robotkey, $request->header['key']);
+            if ($server) {
+                $server = json_decode($server, true);
+                if ($server['permit'] == $request->header['permit']) {
+                    $allow = true;
+                }
+            }
+        }
+        // 内部接口才能通过该端口访问且不鉴权，需谨慎使用
+        if ($allow) {
+            $app = new InternalApplication($request, $response);
+            $app->handling();
+            $app->destruct();
+        } else {
+            $response->status(404);
+            $response->end();
+        }
     }
 
     /**
@@ -492,13 +510,13 @@ class HttpServer extends BaseServer
     {
         $app = new ServerApplication($request, $response);
         $app->handling();
-        $app->destruct();
     }
 
     /**
      * 客户端
      * @param SwooleRequest $request
      * @param SwooleResponse $response
+     * @throws \Throwable
      */
     private function clientRuning(SwooleRequest $request, SwooleResponse $response)
     {
@@ -509,7 +527,6 @@ class HttpServer extends BaseServer
         } else {
             $app = new ClientApplication($request, $response);
             $app->handling();
-            $app->destruct();
         }
     }
 
@@ -523,7 +540,6 @@ class HttpServer extends BaseServer
     {
         $app = new AloneApplication($request, $response);
         $app->handling();
-        $app->destruct();
     }
 
 }

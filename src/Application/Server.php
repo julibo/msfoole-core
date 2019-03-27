@@ -25,7 +25,7 @@ class Server extends Application
     /**
      * @var
      */
-    protected $cookie;
+    private $cookie;
 
     /**
      * 初始化
@@ -190,6 +190,7 @@ class Server extends Application
             }
             # step 3 选择可用服务
             $server = $this->selectServer();
+
             # step 4 调用服务
             $data = $this->working($server['ip'], $server['port'], $server['permit']);
             var_dump($data);

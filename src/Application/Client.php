@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -12,16 +12,19 @@
 namespace Julibo\Msfoole\Application;
 
 use Julibo\Msfoole\Facade\Config;
-use Julibo\Msfoole\Facade\Cookie;
 use Julibo\Msfoole\Facade\Log;
+use Julibo\Msfoole\Cookie;
 use Julibo\Msfoole\Exception;
 use Julibo\Msfoole\Prompt;
-use Julibo\Msfoole\HttpClient;
 use Julibo\Msfoole\Loader;
 use Julibo\Msfoole\Interfaces\Application;
 
 class Client extends Application
 {
+    /**
+     * @var
+     */
+    private $cookie;
 
     /**
      * @return mixed|void
@@ -30,8 +33,47 @@ class Client extends Application
     {
         $this->httpRequest->init();
         $this->httpRequest->explain();
-        Cookie::init($this->httpRequest, $this->httpResponse);
-        Log::setEnv($this->httpRequest);
+        $this->cookie = new Cookie($this->httpRequest, $this->httpResponse);
+        Log::setEnv($this->httpRequest)->info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
+    }
+
+    /**
+     * @return mixed|void
+     */
+    protected function destruct()
+    {
+        unset($this->cookie);
+        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
+        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
+        Log::setEnv($this->httpRequest)->info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        if ($executionTime > Config::get('log.slow_time')) {
+            Log::setEnv($this->httpRequest)->slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        }
+    }
+
+    /**
+     * @return mixed|void
+     * @throws \Throwable
+     */
+    public function handling()
+    {
+        try {
+            ob_start();
+            $this->working();
+            $content = ob_get_clean();
+            $this->httpResponse->end($content);
+        } catch (\Throwable $e) {
+            $identification = $this->httpRequest->identification;
+            if (Config::get('application.debug')) {
+                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $identification, 'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
+            } else {
+                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $identification];
+            }
+            $this->httpResponse->end(json_encode($content));
+            if ($e->getCode() >= 1000) {
+                throw $e;
+            }
+        }
     }
 
     /**
@@ -40,7 +82,7 @@ class Client extends Application
      */
     private function working()
     {
-        $controller = Loader::factory($this->httpRequest->controller, $this->httpRequest->namespace, $this->httpRequest);
+        $controller = Loader::factory($this->httpRequest->controller, $this->httpRequest->namespace, $this->httpRequest, $this->cookie);
         if(!is_callable(array($controller, $this->httpRequest->action))) {
             throw new Exception(Prompt::$common['METHOD_NOT_EXIST']['msg'], Prompt::$common['METHOD_NOT_EXIST']['code']);
         }
@@ -60,26 +102,4 @@ class Client extends Application
         }
     }
 
-    public function handling()
-    {
-        try {
-            ob_start();
-            Log::info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
-            $this->working();
-            $content = ob_get_clean();
-            $this->httpResponse->end($content);
-        } catch (\Throwable $e) {
-            echo $e->getMessage();
-        }
-    }
-
-    public function destruct()
-    {
-        $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
-        $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-        if ($executionTime > Config::get('log.slow_time')) {
-            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
-        }
-    }
 }

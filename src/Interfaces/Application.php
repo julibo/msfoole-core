@@ -66,6 +66,15 @@ abstract class Application
      * 释放资源
      * @return mixed
      */
-    abstract public function destruct();
+    abstract protected function destruct();
+
+    /**
+     * 释放资源
+     */
+    public function __destruct()
+    {
+        unset($this->httpRequest, $this->httpResponse);
+        $this->destruct();
+    }
 
 }
