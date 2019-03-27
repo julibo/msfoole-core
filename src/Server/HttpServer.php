@@ -508,6 +508,7 @@ class HttpServer extends BaseServer
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
+
         $app = new ServerApplication($request, $response);
         $app->handling();
     }

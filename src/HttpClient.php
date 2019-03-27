@@ -15,9 +15,12 @@ use Swoole\Coroutine\Http\Client;
 
 class HttpClient
 {
+    /**
+     * @var Client
+     */
     private $client;
 
-    public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 30)
+    public function __construct($ip, $port, $permit = null, $identification = null, $token = null,  $ssl = false, $timeout = 10)
     {
         $this->client = new Client($ip, $port, $ssl);
         $this->client->setHeaders([
@@ -30,7 +33,7 @@ class HttpClient
             'identification' => $identification,
             'token' => $token,
         ]);
-        $this->client->set([ 'timeout' => $timeout]);
+        $this->client->set(['timeout' => $timeout]);
     }
 
     /**

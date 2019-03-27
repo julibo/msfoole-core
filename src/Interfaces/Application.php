@@ -73,8 +73,8 @@ abstract class Application
      */
     public function __destruct()
     {
-        unset($this->httpRequest, $this->httpResponse);
         $this->destruct();
+        unset($this->httpRequest, $this->httpResponse);
     }
 
 }
