@@ -63,7 +63,7 @@ class Cookie
      * @param HttpRequest $request
      * @param Response $response
      */
-    public function init(HttpRequest $request, Response $response)
+    public function __construct(HttpRequest $request, Response $response)
     {
         $this->config = array_merge($this->config, Config::get('cookie'));
         $this->response = $response;

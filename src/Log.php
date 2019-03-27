@@ -62,13 +62,45 @@ class Log extends ThinkLog
     /**
      * 设置环境参数
      * @param httpRequest $httpRequest
+     * @return $this
      */
     public function setEnv(httpRequest $httpRequest)
     {
-        $this->key = $httpRequest->identification ?? Helper::guid();
+        $this->key = $httpRequest->identification;
         $this->method = $httpRequest->getRequestMethod();
         $this->uri = $httpRequest->getRequestUri();
         $this->ip = $httpRequest->getRemoteAddr();
+        return $this;
+    }
+
+    /**
+     * @param $method
+     * @return $this
+     */
+    public function setMethod($method)
+    {
+        $this->method = $method;
+        return $this;
+    }
+
+    /**
+     * @param $uri
+     * @return $this
+     */
+    public function setUri($uri)
+    {
+        $this->uri = $uri;
+        return $this;
+    }
+
+    /**
+     * @param $ip
+     * @return $this
+     */
+    public function setIP($ip)
+    {
+        $this->ip = $ip;
+        return $this;
     }
 
     /**

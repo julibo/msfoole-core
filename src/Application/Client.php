@@ -16,6 +16,7 @@ use Julibo\Msfoole\Facade\Cookie;
 use Julibo\Msfoole\Facade\Log;
 use Julibo\Msfoole\Exception;
 use Julibo\Msfoole\Prompt;
+use Julibo\Msfoole\HttpClient;
 use Julibo\Msfoole\Loader;
 use Julibo\Msfoole\Interfaces\Application;
 

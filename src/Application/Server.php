@@ -12,9 +12,9 @@
 namespace Julibo\Msfoole\Application;
 
 use Julibo\Msfoole\Facade\Config;
-use Julibo\Msfoole\Facade\Cookie;
 use Julibo\Msfoole\Facade\Cache;
 use Julibo\Msfoole\Facade\Log;
+use Julibo\Msfoole\Cookie;
 use Julibo\Msfoole\Exception;
 use Julibo\Msfoole\Prompt;
 use Julibo\Msfoole\HttpClient;
@@ -23,14 +23,18 @@ use Julibo\Msfoole\Interfaces\Application;
 class Server extends Application
 {
     /**
+     * @var
+     */
+    protected $cookie;
+
+    /**
      * 初始化
      */
     protected function init()
     {
         $this->httpRequest->init();
         $this->httpRequest->resolve();
-        Cookie::init($this->httpRequest, $this->httpResponse);
-        Log::setEnv($this->httpRequest);
+        $this->cookie = new Cookie($this->httpRequest, $this->httpResponse);
     }
 
     /**
@@ -40,9 +44,9 @@ class Server extends Application
     {
         $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
         $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-        Log::info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        Log::setEnv($this->httpRequest)->info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
         if ($executionTime > Config::get('log.slow_time')) {
-            Log::slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+            Log::setEnv($this->httpRequest)->slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
         }
     }
 
@@ -103,7 +107,7 @@ class Server extends Application
      */
     private function userReview()
     {
-        $user = Cookie::getTokenCache();
+        $user = $this->cookie->getTokenCache();
         if (empty($user) || empty($user['power'])) {
             throw new Exception(Prompt::$server['NOT_LOGIN']['msg'], Prompt::$server['NOT_LOGIN']['code']);
         }
@@ -161,7 +165,7 @@ class Server extends Application
      */
     private function working($ip, $port, $permit)
     {
-        $token = Cookie::getToken();
+        $token = $this->cookie->getToken();
         $identification = $this->httpRequest->identification;
         $cli = new HttpClient($ip, $port, $permit, $identification, $token);
         $method = strtolower($this->httpRequest->getRequestMethod());
@@ -177,7 +181,7 @@ class Server extends Application
     public function handling()
     {
         try {
-            Log::info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
+            Log::setEnv($this->httpRequest)->info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
             # step 1 查找对应的服务
             $freedom = $this->resolve();
             # step 2 在需要认证的服务里进行用户权限认证
