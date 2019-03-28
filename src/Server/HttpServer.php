@@ -450,6 +450,7 @@ class HttpServer extends BaseServer
      * 内部服务调用 不需要鉴权
      * @param SwooleRequest $request
      * @param SwooleResponse $response
+     * @throws \Throwable
      */
     public function callServer(SwooleRequest $request, SwooleResponse $response)
     {
@@ -457,7 +458,6 @@ class HttpServer extends BaseServer
         // print_r($request);
         $app = new InternalApplication($request, $response, $this->chan);
         $app->handling();
-        $app->destruct();
     }
 
     /**

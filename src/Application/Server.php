@@ -178,14 +178,14 @@ class Server extends Application
      * @return array
      * @throws ServerException
      */
-    private function working($ip, $port, $permit)
+    private function working($ip, $port, $permit) : array
     {
         $token = $this->cookie->getToken();
         $cli = new HttpClient($ip, $port, $permit, $this->httpRequest->identification, $token);
         $url = $this->httpRequest->getPathInfo();
         $method = $this->httpRequest->getRequestMethod();
         if (strtoupper($method) == 'POST') {
-            $params = $this->httpRequest->params;
+            $params = $this->httpRequest->params ?? [];
             $result = $cli->post($url, $params);
             return $result;
         } else if (strtoupper($method) == 'GET') {
@@ -251,7 +251,7 @@ class Server extends Application
     public function handling()
     {
         try {
-
+            ob_start();
             # step 0 验证请求合法性
             // $this->checkToken()->checkRequest();
             # step 1 查找对应的服务
@@ -263,7 +263,6 @@ class Server extends Application
             # step 3 选择可用服务
             $server = $this->selectServer();
             # step 4 调用服务
-            ob_start();
             $data = $this->working($server['ip'], $server['port'], $server['permit']);
             # step 5 封装结果
             $this->packingResult($data);
@@ -271,11 +270,16 @@ class Server extends Application
             $content = ob_get_clean();
             $this->httpResponse->end($content);
         } catch (\Throwable $e) {
+            if ($e->getCode() == 0) {
+                $code = 911;
+            } else {
+                $code = $e->getCode();
+            }
             if (Config::get('application.debug')) {
-                $content = ['code' => $e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
+                $content = ['code' => $code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
                     'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
             } else {
-                $content = ['code' => $e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
+                $content = ['code' => $code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
             }
             $this->httpResponse->end(json_encode($content));
             if ($e->getCode() >= 1000) {

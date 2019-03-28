@@ -83,11 +83,11 @@ class Internal extends Application
                 $seed = array_rand($tmp);
                 $s = $tmp[$seed];
             }
-            $result = $server[$s];
             $permit = $this->httpRequest->getHeader('permit');
-            if (empty($result['permit']) || $result['permit'] != $permit) {
+            if (empty($server[$s]['permit']) || $server[$s]['permit'] != $permit) {
                 throw new ServerException(Prompt::$server['REQUEST_EXCEPTION']['msg'], Prompt::$server['REQUEST_EXCEPTION']['code']);
             }
+            return $server[$s];
         } else {
             throw new ServerException(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
         }
@@ -100,15 +100,15 @@ class Internal extends Application
      * @param $permit
      * @return mixed
      */
-    private function working($ip, $port, $permit)
+    private function working($ip, $port, $permit) : array
     {
-        $token = Cookie::getToken();
+        $token = $this->cookie->getToken();
         $identification = $this->httpRequest->identification;
         $cli = new HttpClient($ip, $port, $permit, $identification, $token);
         $url = $this->httpRequest->getPathInfo();
-        $params = $this->httpRequest->params;
-        $result = $cli->post($url, $params);
-        return $result;
+        $params = $this->httpRequest->params ?? [];
+        $response = $cli->post($url, $params);
+        return $response;
     }
 
     /**
@@ -117,16 +117,87 @@ class Internal extends Application
     public function handling()
     {
         try {
+            ob_start();
             # step 1 选择可用服务
             $server = $this->selectServer();
             # step 2 调用服务
-            $data = $this->working($server['ip'], $server['port'], $server['permit']);
-            var_dump($data);
+            $response = $this->working($server['ip'], $server['port'], $server['permit']);
             # step 3 封装结果
-            $result = "<h1>Hello Swoole. #".rand(1000, 9999)."</h1>";
-            $this->httpResponse->end($result);
+            $this->packingData($response);
+            # step 4 输出渲染
+            $content = ob_get_clean();
+            $this->httpResponse->end($content);
         } catch (\Throwable $e) {
-            echo $e->getMessage();
+            if ($e->getCode() == 0) {
+                $code = 911;
+            } else {
+                $code = $e->getCode();
+            }
+            if (Config::get('application.debug')) {
+                $content = ['code' => $code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
+                    'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
+            } else {
+                $content = ['code' => $code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
+            }
+            $this->httpResponse->end(json_encode($content));
+            if ($e->getCode() >= 1000) {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * @param array $response
+     * @throws ServerException
+     */
+    private function packingData(array $response)
+    {
+        if ($response['errCode'] != 0 ) {
+            $msg = socket_strerror($response['errCode']);
+            throw new ServerException($msg, Prompt::$common['SYSTEM_ERROR']['code']);
+        } else {
+            switch ($response['statusCode']) {
+                case 200:
+                    if (Helper::isJson($response['data']) === false) { // 字符串直接输出
+                        echo $response['data'];
+                    } else {
+                        $data = json_decode($response['data'], true);
+                        $this->explain($data);
+                    }
+                    break;
+                case 404:
+                    throw new ServerException(Prompt::$common['OTHER_ERROR']['msg'], Prompt::$common['OTHER_ERROR']['code']);
+                    break;
+                default:
+                    throw new ServerException(Prompt::$common['FORCED_DISCONN']['msg'], Prompt::$common['FORCED_DISCONN']['code']);
+                    break;
+            }
+        }
+    }
+
+    /**
+     * 解释器
+     * @param array $data
+     * @throws ServerException
+     */
+    private function explain(array $data)
+    {
+        if (isset($data['code']) && $data['code'] == 0) {
+            if (Config::get('application.debug')) {
+                $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
+                $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
+                $result = ['code' => 0, 'data' => $data['data'], 'identification' => $this->httpRequest->identification,
+                    'executionTime' =>$executionTime, 'consumeMem' => $consumeMem ];
+            } else {
+                $result = ['code' => 0, 'data' => $data['data'], 'identification' => $this->httpRequest->identification];
+            }
+            echo json_encode($result);
+        } else {
+            if (empty($data["extra"])) {
+                throw new ServerException($data['msg'], $data['code']);
+            } else {
+                throw new ServerException($data['msg'], $data['code'], $data['extra']['file'], $data['extra']['line']);
+            }
         }
     }
 

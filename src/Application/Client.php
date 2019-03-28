@@ -66,11 +66,16 @@ class Client extends Application
             $content = ob_get_clean();
             $this->httpResponse->end($content);
         } catch (\Throwable $e) {
+            if ($e->getCode() == 0) {
+                $code = 911;
+            } else {
+                $code = $e->getCode();
+            }
             if (Config::get('application.debug')) {
-                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
+                $content = ['code'=>$code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
                     'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
             } else {
-                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
+                $content = ['code'=>$code, 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
             }
             $this->httpResponse->end(json_encode($content));
             if ($e->getCode() >= 1000) {
