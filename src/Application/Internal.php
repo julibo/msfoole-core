@@ -15,9 +15,10 @@ use Julibo\Msfoole\Facade\Config;
 use Julibo\Msfoole\Facade\Cache;
 use Julibo\Msfoole\Facade\Log;
 use Julibo\Msfoole\Cookie;
-use Julibo\Msfoole\Exception;
+use Julibo\Msfoole\Helper;
 use Julibo\Msfoole\Prompt;
 use Julibo\Msfoole\HttpClient;
+use Julibo\Msfoole\Exception\ServerException;
 use Julibo\Msfoole\Interfaces\Application;
 
 class Internal extends Application
@@ -32,6 +33,7 @@ class Internal extends Application
         $this->httpRequest->init();
         $this->httpRequest->resolve();
         $this->cookie = new Cookie($this->httpRequest, $this->httpResponse);
+        Log::setEnv($this->httpRequest)->info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
     }
 
     /**
@@ -50,17 +52,22 @@ class Internal extends Application
     /**
      * 随机调用可用服务
      * @return mixed
-     * @throws Exception
+     * @throws ServerException
      */
     private function selectServer()
     {
         $server = [];
         $serverKey = sprintf("%s:*", $this->httpRequest->serviceName);
         $serverList = Cache::hscan(Config::get('msfoole.machine.robotkey'), null, $serverKey, 10000);
+        if (empty($serverList)) {
+            throw new ServerException(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
+        }
         foreach ($serverList as $vo) {
-            $s = json_decode($vo, true);
-            if ($s['power'] > 60) {
-                array_push($server, $s);
+            if (Helper::isJson($vo) !== false) {
+                $s = json_decode($vo, true);
+                if ($s['power'] > 60) {
+                    array_push($server, $s);
+                }
             }
         }
         if ($server) {
@@ -76,9 +83,13 @@ class Internal extends Application
                 $seed = array_rand($tmp);
                 $s = $tmp[$seed];
             }
-            return $server[$s];
+            $result = $server[$s];
+            $permit = $this->httpRequest->getHeader('permit');
+            if (empty($result['permit']) || $result['permit'] != $permit) {
+                throw new ServerException(Prompt::$server['REQUEST_EXCEPTION']['msg'], Prompt::$server['REQUEST_EXCEPTION']['code']);
+            }
         } else {
-            throw new Exception(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
+            throw new ServerException(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
         }
     }
 
@@ -96,9 +107,7 @@ class Internal extends Application
         $cli = new HttpClient($ip, $port, $permit, $identification, $token);
         $url = $this->httpRequest->getPathInfo();
         $params = $this->httpRequest->params;
-        $cli->postDefer($url, $params);
-        $cli->recv();
-        $result = $cli->answer();
+        $result = $cli->post($url, $params);
         return $result;
     }
 

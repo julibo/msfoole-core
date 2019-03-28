@@ -76,6 +76,7 @@ class Log extends ThinkLog
     /**
      * 参数设置
      * @param array $env
+     * @return $this
      */
     public function setParam(array $env)
     {
@@ -153,7 +154,7 @@ class Log extends ThinkLog
         if ($key) {
             $this->key($key);
         }
-        $msg = sprintf('[ %s ]  %s', $key, $data['msg']);
+        $msg = sprintf('[ %s-%s ]  %s', $key, microtime(true), $data['msg']);
         $type = $data['type'] ?? 'info';
         $context = $data['context'] ?? [];
         $this->record($msg, $type, $context);

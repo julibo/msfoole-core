@@ -455,25 +455,9 @@ class HttpServer extends BaseServer
     {
         // 执行应用并响应
         // print_r($request);
-        $allow = false;
-        if (!empty($request->header['key']) && !empty($request->header['permit'])) {
-            $server = Cache::HGET($this->robotkey, $request->header['key']);
-            if (Helper::isJson($server) !== false) {
-                $server = json_decode($server, true);
-                if ($server['permit'] == $request->header['permit']) {
-                    $allow = true;
-                }
-            }
-        }
-        // 内部接口才能通过该端口访问且不鉴权，需谨慎使用
-        if ($allow) {
-            $app = new InternalApplication($request, $response);
-            $app->handling();
-            $app->destruct();
-        } else {
-            $response->status(404);
-            $response->end();
-        }
+        $app = new InternalApplication($request, $response, $this->chan);
+        $app->handling();
+        $app->destruct();
     }
 
     /**
