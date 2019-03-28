@@ -39,7 +39,7 @@ class Internal extends Application
     /**
      * 析构方法
      */
-    public function destruct()
+    protected function destruct()
     {
         $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
         $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';

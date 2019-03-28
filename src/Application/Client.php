@@ -29,7 +29,7 @@ class Client extends Application
     /**
      * @return mixed|void
      */
-    public function init()
+    protected function init()
     {
         $this->httpRequest->init();
         $this->httpRequest->explain();

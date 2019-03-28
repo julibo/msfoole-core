@@ -42,7 +42,7 @@ class Server extends Application
     /**
      * 析构方法
      */
-    public function destruct()
+    protected function destruct()
     {
         unset($this->cookie);
         $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
@@ -253,7 +253,7 @@ class Server extends Application
         try {
             ob_start();
             # step 0 验证请求合法性
-            // $this->checkToken()->checkRequest();
+            $this->checkToken()->checkRequest();
             # step 1 查找对应的服务
             $freedom = $this->resolve();
             # step 2 在需要认证的服务里进行用户权限认证

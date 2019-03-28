@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------
-// | msfoole [ 基于swoole4的简易微服务框架 ]
+// | msfoole [ 基于swoole4的简易微服务API框架 ]
 // +----------------------------------------------------------------------
 // | Copyright (c) 2018 http://julibo.com All rights reserved.
 // +----------------------------------------------------------------------
@@ -12,7 +12,6 @@
 namespace Julibo\Msfoole;
 
 use Julibo\Msfoole\Facade\Config;
-use Julibo\Msfoole\Facade\Cookie;
 
 abstract class AloneController
 {
@@ -24,6 +23,16 @@ abstract class AloneController
     /**
      * @var
      */
+    protected $cookie;
+
+    /**
+     * @var Channel
+     */
+    protected $chan;
+
+    /**
+     * @var
+     */
     protected $params;
 
     /**
@@ -31,22 +40,60 @@ abstract class AloneController
      */
     protected $header;
 
-
+    /**
+     * @var
+     */
     protected $user;
 
     /**
-     * 依赖注入HttpRequest
-     * HttpController constructor.
-     * @param $request
-     * @throws \Exception
+     * @var
      */
-    final public function __construct(HttpRequest $request)
+    protected $token;
+
+    /**
+     * AloneController constructor.
+     * @param $request
+     * @param $cookie
+     * @param $chan
+     * @throws Exception
+     */
+    final public function __construct($request, $cookie, $chan)
     {
         $this->request = $request;
-        $this->params = $this->request->params;
+        $this->cookie = $cookie;
+        $this->chan = $chan;
         $this->header = $this->request->getHeader();
+        $this->params = $this->request->params;
         $this->authentication();
         $this->init();
+    }
+
+    /**
+     * 初始化方法
+     * @return mixed
+     */
+    abstract public function init();
+
+    /**
+     * 通过token获取用户信息
+     * @return array
+     */
+    protected function getUserByToken()
+    {
+        $this->token =  $this->header['token'] ?? null;
+        if ($this->token) {
+            $this->user = $this->cookie->getTokenCache($this->token);
+        }
+        return $this->user;
+    }
+
+    /**
+     * 向客户端授权
+     * @param array $user
+     */
+    protected function setToken(array $user)
+    {
+        $this->cookie->setToken($user);
     }
 
     /**
@@ -67,57 +114,12 @@ abstract class AloneController
         }
         // 需要鉴权
         if ($execute) {
-            if (!isset($this->header['level']) || !in_array($this->header['level'], [0, 1, 2]) || empty($this->header['timestamp']) || empty($this->header['token']) ||
-                empty($this->header['signstr']) || !in_array($this->header['level'], [0, 1, 2]) ||
-                $this->header['timestamp'] > strtotime('10 minutes') * 1000 ||
-                $this->header['timestamp'] < strtotime('-10 minutes') * 1000) {
-                throw new Exception(Prompt::$exception['REQUEST_EXCEPTION']['msg'], Prompt::$exception['REQUEST_EXCEPTION']['code']);
-            }
-            $supply = $this->header['timestamp'] . $this->header['token'];
-            if (!empty($this->params)) {
-                ksort($this->params);
-                array_walk($this->params, function($value,$key) use (&$supply) {
-                    $supply .= $key.$value;
-                });
-            }
-            if (md5($supply) != $this->header['signstr']) {
-                throw new Exception(Prompt::$exception['SIGN_EXCEPTION']['msg'], Prompt::$exception['SIGN_EXCEPTION']['code']);
-            }
-
             $user = $this->getUserByToken();
             if ($user) {
                 $this->user = $user;
             } else {
-                throw new Exception(Prompt::$exception['AUTH_EXCEPTION']['msg'], Prompt::$exception['AUTH_EXCEPTION']['code']);
+                throw new Exception("用户认证失败", 666);
             }
         }
     }
-
-    /**
-     * 通过token获取用户信息
-     * @return array
-     */
-    protected function getUserByToken() : array
-    {
-        $token =  $this->request->getHeader('token') ?? null;
-        $user = Cookie::getTokenCache($token);
-        return $user ?? [];
-    }
-
-    /**
-     * 向客户端授权
-     * @param array $user
-     */
-    protected function setToken(array $user)
-    {
-        Cookie::setToken($user);
-    }
-
-    /**
-     * 初始化方法
-     * @return mixed
-     */
-    abstract public function init();
-
-
 }
