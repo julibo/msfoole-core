@@ -34,7 +34,8 @@ class Client extends Application
         $this->httpRequest->init();
         $this->httpRequest->explain();
         $this->cookie = new Cookie($this->httpRequest, $this->httpResponse);
-        Log::setEnv($this->httpRequest)->info('请求开始，请求参数为 {message}', ['message' => json_encode($this->httpRequest->params)]);
+        Log::setEnv($this->httpRequest)->info('请求开始，请求参数为 {message}',
+            ['message' => json_encode($this->httpRequest->params)]);
     }
 
     /**
@@ -45,9 +46,11 @@ class Client extends Application
         unset($this->cookie);
         $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
         $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-        Log::setEnv($this->httpRequest)->info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+        Log::setEnv($this->httpRequest)->info('请求结束，执行时间{executionTime}，消耗内存{consumeMem}',
+            ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
         if ($executionTime > Config::get('log.slow_time')) {
-            Log::setEnv($this->httpRequest)->slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}', ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
+            Log::setEnv($this->httpRequest)->slow('当前方法执行时间{executionTime}，消耗内存{consumeMem}',
+                ['executionTime' => $executionTime, 'consumeMem' => $consumeMem]);
         }
     }
 
@@ -63,11 +66,11 @@ class Client extends Application
             $content = ob_get_clean();
             $this->httpResponse->end($content);
         } catch (\Throwable $e) {
-            $identification = $this->httpRequest->identification;
             if (Config::get('application.debug')) {
-                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $identification, 'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
+                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
+                    'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
             } else {
-                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $identification];
+                $content = ['code'=>$e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
             }
             $this->httpResponse->end(json_encode($content));
             if ($e->getCode() >= 1000) {
@@ -88,15 +91,14 @@ class Client extends Application
         }
         $data = call_user_func([$controller, $this->httpRequest->action]);
         if ($data === null && ob_get_contents() != '') {
-        } else if (is_string($data) && is_array(Config::get('application.allow.output')) && in_array($data, Config::get('application.allow.output'))) {
-            echo $data;
         } else {
             if (Config::get('application.debug')) {
                 $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
                 $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-                $result = ['code' => 0, 'msg' => '', 'data' => $data, 'identification' => $this->httpRequest->identification, 'executionTime' =>$executionTime, 'consumeMem' => $consumeMem ];
+                $result = ['code' => 0, 'data' => $data, 'identification' => $this->httpRequest->identification,
+                    'executionTime' =>$executionTime, 'consumeMem' => $consumeMem];
             } else {
-                $result = ['code' => 0, 'msg' => '', 'data' => $data, 'identification' => $this->httpRequest->identification];
+                $result = ['code' => 0, 'data' => $data, 'identification' => $this->httpRequest->identification];
             }
             echo json_encode($result);
         }

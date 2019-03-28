@@ -127,7 +127,7 @@ class HttpServer extends BaseServer
             $callServer = $this->swoole->addListener($this->host, $this->callPort, SWOOLE_SOCK_TCP);
             $callServer->on("request", [$this, "callServer"]);
             # 开启健康监测
-            // $this->monitorHealth();
+            $this->monitorHealth();
         } else if ($this->pattern == 1) {
             # 生成许可证
             $this->permit = Helper::guid();
@@ -324,7 +324,7 @@ class HttpServer extends BaseServer
      */
     public function onClose(\Swoole\Server $server, int $fd, int $reactorId)
     {
-        echo sprintf('%s的连接关闭', $fd);
+        // echo sprintf('%s的连接关闭', $fd);
     }
 
     /**
@@ -508,7 +508,6 @@ class HttpServer extends BaseServer
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
-
         $app = new ServerApplication($request, $response);
         $app->handling();
     }

@@ -261,7 +261,8 @@ class Server extends Application
             $this->httpResponse->end($content);
         } catch (\Throwable $e) {
             if (Config::get('application.debug')) {
-                $content = ['code' => $e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification, 'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
+                $content = ['code' => $e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification,
+                    'extra'=>['file'=>$e->getFile(), 'line'=>$e->getLine()]];
             } else {
                 $content = ['code' => $e->getCode(), 'msg'=>$e->getMessage(), 'identification' => $this->httpRequest->identification];
             }

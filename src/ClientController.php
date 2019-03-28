@@ -16,7 +16,7 @@ abstract class ClientController
     /**
      * @var
      */
-    protected $request;
+    private $request;
 
     /**
      * @var
@@ -26,19 +26,32 @@ abstract class ClientController
     /**
      * @var
      */
-    protected $params;
+    private $header;
 
     /**
      * @var
      */
-    protected $header;
+    protected $params;
 
     /**
      * @var
      */
     protected $user;
 
+    /**
+     * @var
+     */
+    protected $token;
 
+    /**
+     * @var
+     */
+    protected $permit;
+
+    /**
+     * @var
+     */
+    protected $identification;
 
     /**
      * 依赖注入HttpRequest
@@ -50,21 +63,62 @@ abstract class ClientController
     {
         $this->request = $request;
         $this->cookie = $cookie;
-        $this->params = $this->request->params;
         $this->header = $this->request->getHeader();
+        $this->permit = $this->header['permit'] ?? null;
+        $this->identification = $this->header['identification'] ?? null;
+        $this->params = $this->request->params;
         $this->getUserByToken();
         $this->init();
     }
 
+    /**
+     * @return mixed|null
+     */
+    protected function getPermit()
+    {
+        return $this->permit;
+    }
+
+    /**
+     * @return mixed|null
+     */
+    protected function getIdentification()
+    {
+        return $this->identification;
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getToken()
+    {
+        return $this->token;
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getParams()
+    {
+        return $this->params;
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getUser()
+    {
+        return $this->user;
+    }
 
     /**
      * 通过token获取用户信息
      */
     private function getUserByToken()
     {
-        $token =  $this->header['token'] ?? null;
-        if ($token) {
-            $user = $this->cookie->getTokenCache($token);
+        $this->token =  $this->header['token'] ?? null;
+        if ($this->token) {
+            $user = $this->cookie->getTokenCache($this->token);
             $this->user = $user;
         }
     }
