@@ -144,31 +144,37 @@ class HttpServer extends BaseServer
             Helper::setProcessTitle("msfoole:health-" . $this->appName);
             swoole_timer_tick(60000, function () {
                 $robot = Cache::HGETALL($this->robotkey);
-                $clients = [];
-                foreach ($robot as $k => $vo) {
-                    $server = json_decode($vo, true);
-                    $cli = new HttpClient($server['ip'], $server['port'], $server['permit']);
-                    $cli->getDefer($server['health_uri']);
-                    $clients[$k] = $cli;
-                }
-                foreach ($clients as $k => $cli) {
-                    $server = Cache::HGET($this->robotkey, $k);
-                    $server = json_decode($server, true);
-                    $server['counter'] = $server['counter'] + 1;
-                    $res = $cli->recv();
-                    $respond = $cli->answer();
-                    if ($res && !empty($respond) && $respond['errCode'] == 0 && $respond['statusCode'] == 200) {
-                        if ($server['power'] < 100) {
-                            $server['power'] = $server['power'] + 1;
+                if (!empty($robot)) {
+                    $clients = [];
+                    foreach ($robot as $k => $vo) {
+                        if (Helper::isJson($vo) !== false) {
+                            $server = json_decode($vo, true);
+                            $cli = new HttpClient($server['ip'], $server['port'], $server['permit']);
+                            $cli->getDefer($server['health_uri']);
+                            $clients[$k] = $cli;
                         }
-                        $server['living'] = time();
-                        Cache::HSET($this->robotkey, $k, json_encode($server));
-                    } else {
-                        $server['power'] = $server['power'] - 20;
-                        if ($server['power'] <= 0) {
-                            Cache::HDEL($this->robotkey, $k);
-                        } else {
-                            Cache::HSET($this->robotkey, $k, json_encode($server));
+                    }
+                    foreach ($clients as $k => $cli) {
+                        $server = Cache::HGET($this->robotkey, $k);
+                        if (Helper::isJson($server) !== false) {
+                            $server = json_decode($server, true);
+                            $server['counter'] = $server['counter'] + 1;
+                            $res = $cli->recv();
+                            $respond = $cli->answer();
+                            if ($res && !empty($respond) && $respond['errCode'] == 0 && $respond['statusCode'] == 200) {
+                                if ($server['power'] < 100) {
+                                    $server['power'] = $server['power'] + 1;
+                                }
+                                $server['living'] = time();
+                                Cache::HSET($this->robotkey, $k, json_encode($server));
+                            } else {
+                                $server['power'] = $server['power'] - 20;
+                                if ($server['power'] <= 0) {
+                                    Cache::HDEL($this->robotkey, $k);
+                                } else {
+                                    Cache::HSET($this->robotkey, $k, json_encode($server));
+                                }
+                            }
                         }
                     }
                 }
@@ -452,7 +458,7 @@ class HttpServer extends BaseServer
         $allow = false;
         if (!empty($request->header['key']) && !empty($request->header['permit'])) {
             $server = Cache::HGET($this->robotkey, $request->header['key']);
-            if ($server) {
+            if (Helper::isJson($server) !== false) {
                 $server = json_decode($server, true);
                 if ($server['permit'] == $request->header['permit']) {
                     $allow = true;
@@ -508,7 +514,7 @@ class HttpServer extends BaseServer
      */
     private function serverRuning(SwooleRequest $request, SwooleResponse $response)
     {
-        $app = new ServerApplication($request, $response);
+        $app = new ServerApplication($request, $response, $this->chan);
         $app->handling();
     }
 
@@ -525,7 +531,7 @@ class HttpServer extends BaseServer
             $response->status(404);
             $response->end();
         } else {
-            $app = new ClientApplication($request, $response);
+            $app = new ClientApplication($request, $response, $this->chan);
             $app->handling();
         }
     }
@@ -538,7 +544,7 @@ class HttpServer extends BaseServer
      */
     private function aloneRuning(SwooleRequest $request, SwooleResponse $response)
     {
-        $app = new AloneApplication($request, $response);
+        $app = new AloneApplication($request, $response, $this->chan);
         $app->handling();
     }
 

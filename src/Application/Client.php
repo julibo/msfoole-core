@@ -85,7 +85,7 @@ class Client extends Application
      */
     private function working()
     {
-        $controller = Loader::factory($this->httpRequest->controller, $this->httpRequest->namespace, $this->httpRequest, $this->cookie);
+        $controller = Loader::factory($this->httpRequest->controller, $this->httpRequest->namespace, $this->httpRequest, $this->cookie, $this->chan);
         if(!is_callable(array($controller, $this->httpRequest->action))) {
             throw new Exception(Prompt::$common['METHOD_NOT_EXIST']['msg'], Prompt::$common['METHOD_NOT_EXIST']['code']);
         }

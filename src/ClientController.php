@@ -16,17 +16,22 @@ abstract class ClientController
     /**
      * @var
      */
-    private $request;
+    protected $request;
 
     /**
      * @var
      */
-    private $cookie;
+    protected $cookie;
+
+    /**
+     * @var Channel
+     */
+    protected $chan;
 
     /**
      * @var
      */
-    private $header;
+    protected $header;
 
     /**
      * @var
@@ -54,15 +59,16 @@ abstract class ClientController
     protected $identification;
 
     /**
-     * 依赖注入HttpRequest
      * ClientController constructor.
      * @param HttpRequest $request
      * @param Cookie $cookie
+     * @param Channel $chan
      */
-    public function __construct(HttpRequest $request, Cookie $cookie)
+    public function __construct($request, $cookie, $chan)
     {
         $this->request = $request;
         $this->cookie = $cookie;
+        $this->chan = $chan;
         $this->header = $this->request->getHeader();
         $this->permit = $this->header['permit'] ?? null;
         $this->identification = $this->header['identification'] ?? null;

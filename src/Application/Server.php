@@ -64,12 +64,17 @@ class Server extends Application
         $serverKey = sprintf("%s:*", $this->httpRequest->serviceName);
         $serverList = Cache::hscan(Config::get('msfoole.machine.robotkey'), null, $serverKey, 10000);
         $regular = false;
+        if (empty($serverList)) {
+            throw new ServerException(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
+        }
         foreach ($serverList as $vo) {
-            $server = json_decode($vo, true);
-            if ($server['power'] > 60) {
-                $whiteList = $server['white_list'] ?? '';
-                $regular = true;
-                break;
+            if (Helper::isJson($vo) !== false) {
+                $server = json_decode($vo, true);
+                if ($server['power'] > 60) {
+                    $whiteList = $server['white_list'] ?? '';
+                    $regular = true;
+                    break;
+                }
             }
         }
         if (!$regular) { //　不存在有效的可用服务
@@ -135,10 +140,15 @@ class Server extends Application
         $server = [];
         $serverKey = sprintf("%s:*", $this->httpRequest->serviceName);
         $serverList = Cache::hscan(Config::get('msfoole.machine.robotkey'), null, $serverKey, 10000);
+        if (empty($serverList)) {
+            throw new ServerException(Prompt::$server['SERVER_INVALID']['msg'], Prompt::$server['SERVER_INVALID']['code']);
+        }
         foreach ($serverList as $vo) {
-            $s = json_decode($vo, true);
-            if ($s['power'] > 60) {
-                array_push($server, $s);
+            if (Helper::isJson($vo) !== false) {
+                $s = json_decode($vo, true);
+                if ($s['power'] > 60) {
+                    array_push($server, $s);
+                }
             }
         }
         if ($server) {
@@ -241,7 +251,7 @@ class Server extends Application
     public function handling()
     {
         try {
-            ob_start();
+
             # step 0 验证请求合法性
             // $this->checkToken()->checkRequest();
             # step 1 查找对应的服务
@@ -253,6 +263,7 @@ class Server extends Application
             # step 3 选择可用服务
             $server = $this->selectServer();
             # step 4 调用服务
+            ob_start();
             $data = $this->working($server['ip'], $server['port'], $server['permit']);
             # step 5 封装结果
             $this->packingResult($data);
@@ -284,7 +295,8 @@ class Server extends Application
             if (Config::get('application.debug')) {
                 $executionTime = round(microtime(true) - $this->beginTime, 6) . 's';
                 $consumeMem = round((memory_get_usage() - $this->beginMem) / 1024, 2) . 'K';
-                $result = ['code' => 0, 'data' => $data['data'], 'identification' => $this->httpRequest->identification, 'executionTime' =>$executionTime, 'consumeMem' => $consumeMem ];
+                $result = ['code' => 0, 'data' => $data['data'], 'identification' => $this->httpRequest->identification,
+                    'executionTime' =>$executionTime, 'consumeMem' => $consumeMem ];
             } else {
                 $result = ['code' => 0, 'data' => $data['data'], 'identification' => $this->httpRequest->identification];
             }

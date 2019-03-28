@@ -11,11 +11,12 @@
 
 namespace Julibo\Msfoole\Interfaces;
 
+
 use Swoole\Http\Request as SwooleRequest;
 use Swoole\Http\Response as SwooleResponse;
 use Julibo\Msfoole\HttpRequest;
 use Julibo\Msfoole\Response;
-
+use Julibo\Msfoole\Channel;
 
 abstract class Application
 {
@@ -36,15 +37,21 @@ abstract class Application
     protected $beginMem;
 
     /**
-     * 构造函数
+     * @var 通道
+     */
+    protected $chan;
+
+    /**
      * Application constructor.
      * @param SwooleRequest $request
      * @param SwooleResponse $response
+     * @param Channel $chan
      */
-    public function __construct(SwooleRequest $request, SwooleResponse $response)
+    public function __construct(SwooleRequest $request, SwooleResponse $response, Channel $chan)
     {
         $this->beginTime = microtime(true);
         $this->beginMem  = memory_get_usage();
+        $this->chan = $chan;
         $this->httpResponse = new Response($response);
         $this->httpRequest = new HttpRequest($request);
         $this->init();
@@ -74,7 +81,7 @@ abstract class Application
     public function __destruct()
     {
         $this->destruct();
-        unset($this->httpRequest, $this->httpResponse);
+        unset($this->httpRequest, $this->httpResponse, $this->chan);
     }
 
 }

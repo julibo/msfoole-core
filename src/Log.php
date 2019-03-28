@@ -74,6 +74,27 @@ class Log extends ThinkLog
     }
 
     /**
+     * 参数设置
+     * @param array $env
+     */
+    public function setParam(array $env)
+    {
+        if (!empty($env['method'])) {
+            $this->setMethod($env['method']);
+        }
+        if (!empty($env['uri'])) {
+            $this->setUri($env['uri']);
+        }
+        if (!empty($env['ip'])) {
+            $this->setIp($env['ip']);
+        }
+        if (!empty($env['key'])) {
+            $this->key($env['key']);
+        }
+        return $this;
+    }
+
+    /**
      * @param $method
      * @return $this
      */
